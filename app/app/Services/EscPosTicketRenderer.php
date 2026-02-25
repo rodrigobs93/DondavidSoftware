@@ -117,12 +117,14 @@ class EscPosTicketRenderer
 
     private function pad(string $s, int $len): string
     {
-        return mb_str_pad($s, $len);
+        $pad = $len - mb_strlen($s);
+        return $s . ($pad > 0 ? str_repeat(' ', $pad) : '');
     }
 
     private function padL(string $s, int $len): string
     {
-        return mb_str_pad($s, $len, ' ', STR_PAD_LEFT);
+        $pad = $len - mb_strlen($s);
+        return ($pad > 0 ? str_repeat(' ', $pad) : '') . $s;
     }
 
     /** Format as COP: $38.000 (no decimals, dot thousands separator) */

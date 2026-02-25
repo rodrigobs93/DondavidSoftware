@@ -251,6 +251,19 @@ Tres grupos:
 
 ---
 
+## Sesión 2026-02-25 — Control de versiones
+
+### Git + GitHub configurado
+
+- **Git identity** configurada globalmente: `Rodrigo Barrios <rogonec@gmail.com>`
+- **Repositorio remoto** vinculado: `https://github.com/rodrigobs93/DondavidSoftware.git`
+- **`.gitignore` raíz** creado para excluir `.claude/` (configuración local de Claude Code)
+- `app/.git` (inicializado pero sin commits) eliminado para que `app/` sea parte del repo principal
+- **Commit inicial** creado con 114 archivos (todo el proyecto)
+- **Push exitoso** a `origin/main` — código ya visible en GitHub
+
+---
+
 ## Estado actual del repositorio
 
 ```
