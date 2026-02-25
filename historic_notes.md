@@ -1,0 +1,298 @@
+# Don David Software — Historic Notes
+
+> Carnicería Don David · POS + Facturación Local-First · Bogotá, Colombia
+> Documento creado: 2026-02-24
+
+---
+
+## Lo que se ha hecho
+
+### Infraestructura / entorno (Sprint 0 parcial)
+
+- **PHP 8.2** instalado vía WinGet (sin acceso admin) en:
+  `C:\Users\rodri\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.2_Microsoft.Winget.Source_8wekyb3d8bbwe\`
+- `php.ini` configurado manualmente (copiado de `php.ini-development`):
+  - `extension_dir` apuntando a la ruta absoluta Windows de `ext\`
+  - Extensiones habilitadas: `openssl`, `pdo_pgsql`, `pgsql`, `mbstring`, `curl`, `zip`, `bcmath`, `intl`, `fileinfo`, `gd`, `sodium`
+- **Composer** instalado descargándolo vía curl (WinGet no tiene paquete).
+- **PostgreSQL 16** instalado vía WinGet.
+- Base de datos creada: `don_david`, usuario: `don_david_user`, password: `don_david_pass`.
+- Scripts de shell escritos en disco para evitar problemas de rutas con espacios en bash:
+  - `setup.sh` — creó el proyecto Laravel
+  - `setup_db.sh` — creó DB y usuario en PostgreSQL
+  - `run_migrate.sh` — corre migraciones y seeders
+  - `run_test.sh` — verifica routes, key, extensiones
+
+### Proyecto Laravel (M1–M6 completados)
+
+- Proyecto creado en `donDavidSoftware/app/` con `composer create-project laravel/laravel`.
+- `.env` configurado para PostgreSQL, zona horaria Bogotá, variables custom.
+- `.env.example` documentado con todas las variables necesarias.
+- `bootstrap/app.php` registra aliases de middleware `lan` y `admin`.
+
+#### Migraciones (12 tablas)
+
+| Tabla | Notas clave |
+|-------|------------|
+| `users` | role CHECK (admin/cashier), active flag |
+| `customers` | is_generic con unique index parcial, requires_fe |
+| `products` | sale_unit (KG/UNIT), price_updated_by |
+| `customer_product_prices` | placeholder Fase 2, sin UI |
+| `invoices` | SEQUENCE para consecutivo, balance almacenado, voided flag (Fase 2) |
+| `invoice_items` | snapshot de nombre y precio, timestamps = solo created_at |
+| `payments` | method CHECK (CASH/CARD/NEQUI/DAVIPLATA/BREB) |
+| `print_jobs` | payload JSONB completo, status QUEUED/PRINTING/PRINTED/FAILED |
+| `settings` | clave-valor para config del negocio |
+| `sessions` | driver database para sesiones Laravel |
+| `cache` | driver database para caché Laravel |
+| `jobs` | queue database (no usada en Fase 1, estructura presente) |
+
+**Todas las migraciones corrieron exitosamente.**
+
+#### Seeders
+
+- `UserSeeder` — admin@dondavid.co / DonDavid2024! (admin) · cajero@dondavid.co / Cajero2024! (cashier)
+- `CustomerSeeder` — cliente GENERIC (is_generic=true, requerido, no borrable)
+- `ProductSeeder` — 10 productos de muestra (costilla res, lomo, chorizo, morcilla, etc.)
+- `SettingSeeder` — 8 settings iniciales (nombre, dirección, NIT, teléfono, footer tiquete, lan_ip, backup_path, puerto impresora)
+
+**Todos los seeders corrieron exitosamente.**
+
+#### Modelos Eloquent (8)
+
+`User`, `Customer`, `Product`, `Invoice`, `InvoiceItem`, `Payment`, `PrintJob`, `Setting`
+
+Helpers notables:
+- `Invoice::getFeLabelAttribute()` — devuelve `'FE: NO'` / `'FE: PENDIENTE'` / `'FE: EMITIDA - {ref}'`
+- `InvoiceItem::getFormattedQuantityAttribute()` — `'1.250 kg'` o `'4 und'`
+- `Payment::$methods` — mapa código → label español
+- `Setting::get(key, default)` / `Setting::set(key, value)` — helpers estáticos
+
+#### Middleware
+
+- `EnsureLanAccess` — bloquea al cajero si su IP no es privada (usa `FILTER_VALIDATE_IP` con `FILTER_FLAG_NO_PRIV_RANGE`)
+- `EnsureAdmin` — abort 403 si el usuario no es admin
+
+#### Servicios
+
+- `SaleService` — transacción atómica: consecutivo → invoice → items → payments → print_job → commit
+- `EscPosTicketRenderer` — renderiza bytes ESC/POS desde payload JSONB; maneja alineación, negritas, corte de papel
+
+#### Controladores (10)
+
+`LoginController`, `DashboardController`, `ProductController`, `CustomerController`,
+`SaleController`, `InvoiceController`, `CarteraController`, `FePendingController`,
+`ReportController`, `BackupController`
+
+#### Rutas (31)
+
+Tres grupos:
+- **Guest:** `/login` GET/POST, `/logout` POST
+- **Auth + LAN:** Dashboard, ventas, facturas, cartera, FE pendiente, búsqueda JSON
+- **Admin:** Productos, clientes, reportes, backups/settings
+
+#### Vistas Blade (11 pantallas + layout)
+
+| # | Vista | Descripción |
+|---|-------|-------------|
+| — | `layouts/app` | Nav, flash messages, Tailwind CDN, Alpine CDN |
+| 1 | `auth/login` | Login centrado |
+| 2 | `dashboard` | Stats del día, URL LAN, shortcuts |
+| 3 | `sales/create` | Nueva venta (pantalla más compleja) |
+| 4 | `invoices/index` | Lista de facturas con filtros |
+| 5 | `invoices/show` | Detalle, abono, FE mark, reprint |
+| 6 | `cartera/index` | Cartera con abono inline |
+| 7 | `fe-pending/index` | Cola de FE pendiente |
+| 8 | `products/index` | Precios con edición inline |
+| 9 | `customers/index` | Lista clientes (GENERIC protegido) |
+| 10 | `customers/create` + `edit` | CRUD clientes |
+| 11 | `reports/payments` | Pagos por método en rango de fechas |
+| 12 | `backups/index` | Config negocio + exportar backup |
+
+`sales/create` tiene el componente Alpine.js más complejo:
+- Autocomplete de clientes y productos (fetch JSON)
+- Toggle FE con validación (bloquea GENERIC)
+- Split payments con guarda de sobrepago
+- Totales reactivos (subtotal, domicilio, saldo)
+
+#### Comando Artisan: Print Worker
+
+`app:print-worker` — loop infinito que:
+1. Al arrancar: resetea jobs stuck en `PRINTING` → `QUEUED`
+2. Toma el primer job `QUEUED` con `lockForUpdate()`
+3. Renderiza ESC/POS desde el payload JSONB
+4. Escribe bytes al puerto COM (`fopen($port, 'wb')`)
+5. Marca `PRINTED` o vuelve a `QUEUED`; tras 3 fallos → `FAILED`
+
+#### Documentación
+
+- `README-INSTALL.md` — guía de instalación Windows con credenciales por defecto, NSSM, IP estática, firewall, backup/restore
+
+---
+
+## Decisiones técnicas
+
+| Decisión | Alternativa descartada | Razón |
+|----------|----------------------|-------|
+| WinGet para instalar PHP/PostgreSQL | Chocolatey | No hay acceso de administrador |
+| Scripts `.sh` para laravel setup | Inline bash multi-línea | Las rutas con espacios (`OneDrive/COLDEVS`) rompían `export` en bash |
+| PostgreSQL SEQUENCE para consecutivo | Auto-increment Laravel | SEQUENCE es atómico bajo concurrencia; genera el int bruto que se formatea en PHP |
+| `bcmath` para aritmética monetaria | Float/double PHP | Evita errores de punto flotante en totales y balances |
+| Tailwind + Alpine.js via CDN | Vite build step | Sin build step en MVP; máxima simplicidad para un POS local |
+| `balance` campo almacenado en `invoices` | Calculado en consulta | Simplifica queries de cartera y suma por índice parcial |
+| Payload JSONB completo en `print_jobs` | Queries al imprimir | El daemon nunca necesita consultas adicionales; funciona aunque los datos cambien |
+| `PRINT_JOB_SOURCE=database` en `.env` | Hardcoded | El switch prepara la migración a Fase 3 (cloud API) sin cambiar código |
+| `voided` flag en `invoices` desde día 1 | Agregar en Fase 2 | El schema nunca cambia una vez en producción; campo presente, sin UI por ahora |
+| `customer_product_prices` tabla vacía Fase 1 | Omitirla | Migrar en producción es costoso; mejor crearla vacía ahora |
+
+---
+
+## Problemas pendientes
+
+### Crítico (bloquea MVP real)
+
+| # | Problema | Detalle |
+|---|---------|---------|
+| P1 | **`mb_str_pad()` no existe en PHP 8.2** | `EscPosTicketRenderer.php` usa `mb_str_pad()` que fue añadida en PHP 8.3. En PHP 8.2 lanzará `Error: Call to undefined function`. **Fix:** reemplazar con función manual usando `mb_strlen` + `str_pad`. |
+| P2 | **Impresora térmica no probada** | No se ha ejecutado el Sprint 0 físico: enviar bytes ESC/POS al puerto COM del PC POS real e imprimir un tiquete de prueba. Sin este paso no se sabe si el driver COM funciona desde PHP. |
+
+### Importante
+
+| # | Problema | Detalle |
+|---|---------|---------|
+| P3 | **PHP no está en el PATH del sistema** | Solo accesible vía ruta completa o scripts. Para usarlo desde terminal directo hay que añadir la carpeta WinGet al PATH de usuario en Variables de entorno de Windows. |
+| P4 | **NSSM no instalado** | Los servicios Windows `DonDavidWeb` y `DonDavidPrint` no están registrados. La app solo corre manualmente con `php artisan serve`. |
+| P5 | **Puerto 8000 no abierto en Firewall Windows** | Acceso LAN desde celular/otros equipos bloqueado hasta ejecutar la regla `netsh`. |
+| P6 | **IP estática no asignada** | La URL LAN puede cambiar cuando el router reinicia. |
+
+### Menor
+
+| # | Problema | Detalle |
+|---|---------|---------|
+| P7 | **Backup: `pg_dump` path en Windows** | `BackupController` ejecuta `pg_dump`; en Windows la ruta de PostgreSQL 16 (`C:\Program Files\PostgreSQL\16\bin\pg_dump.exe`) debe estar en PATH o especificarse en el código. |
+| P8 | **APP_KEY no persistida** | El `.env` original fue generado durante `composer create-project`; verificar que la key esté presente (`php artisan key:show`). |
+| P9 | **Zona horaria `America/Bogota`** | `config/app.php` lee `APP_TIMEZONE` — presente en `.env` — pero no se ha verificado en runtime que los timestamps `invoice_date` usen la zona correcta. |
+
+---
+
+## Próximos pasos
+
+### Inmediato (antes de primera prueba real)
+
+1. **Corregir `mb_str_pad()` en `EscPosTicketRenderer.php`**
+   Reemplazar:
+   ```php
+   mb_str_pad($text, $width, ' ', STR_PAD_RIGHT)
+   ```
+   Con:
+   ```php
+   $pad = $width - mb_strlen($text);
+   $text . ($pad > 0 ? str_repeat(' ', $pad) : '')
+   ```
+
+2. **Sprint 0 — Test de impresión físico**
+   - Conectar la impresora USB
+   - Anotar puerto COM en Device Manager
+   - Actualizar `.env`: `THERMAL_PRINTER_PORT=COM3` (o el que sea)
+   - Ejecutar `php artisan app:print-worker` y crear una venta de prueba
+   - Verificar que el tiquete sale correctamente
+
+3. **Añadir PHP al PATH de usuario**
+   En PowerShell:
+   ```powershell
+   $phpPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\PHP.PHP.8.2_Microsoft.Winget.Source_8wekyb3d8bbwe"
+   [Environment]::SetEnvironmentVariable("PATH", $env:PATH + ";$phpPath", "User")
+   ```
+
+4. **Abrir puerto 8000 en Firewall**
+   ```batch
+   netsh advfirewall firewall add rule name="DonDavid POS" dir=in action=allow protocol=TCP localport=8000
+   ```
+
+5. **Asignar IP estática** al PC POS (Panel de control → Adaptador de red → TCP/IPv4).
+   Luego actualizar `settings.lan_ip` en Config del sistema dentro de la app.
+
+### Después del Sprint 0 exitoso
+
+6. **Instalar NSSM** y registrar servicios Windows:
+   - `DonDavidWeb` → `php artisan serve --host=0.0.0.0 --port=8000`
+   - `DonDavidPrint` → `php artisan app:print-worker`
+   (Ver comandos exactos en `README-INSTALL.md`)
+
+7. **QA manual completo** (checklist del plan):
+   - Login cajero desde IP externa → debe dar 403
+   - Venta con producto KG: `1.250 kg` → `line_total` correcto
+   - Split payment CASH + NEQUI exacto al total → status `PAID`
+   - Split payment menor al total → `PARTIAL`, aparece en cartera
+   - Overpago → botón Finalizar deshabilitado
+   - Consecutivo `0000001`, `0000002`... sin duplicados
+   - Abono reduce balance; al llegar a 0 → `PAID`, sale de cartera
+   - Reprint → nuevo print_job creado → tiquete impreso
+   - Backup SQL: descarga correcta, nombre `dondavid_backup_YYYY-MM-DD_HHMMSS.sql`
+
+8. **Verificar backup path** con ruta OneDrive real configurada en Settings.
+
+### Fase 2 (después de MVP estable en producción)
+
+- Precios especiales por cliente/producto (`customer_product_prices` ya tiene tabla)
+- Anulación de facturas (`voided` flag ya está en schema)
+- Historial de cambios de precio
+- CRUD de usuarios
+- Exportar reporte a CSV
+- Backup automático diario (scheduler Laravel)
+- Link Click-to-WhatsApp con resumen de factura
+
+### Fase 3 (nube + DIAN)
+
+- Deploy VPS (Ubuntu 22.04, Nginx, PHP-FPM, PostgreSQL managed)
+- `PRINT_JOB_SOURCE=api` → print daemon hace HTTP polling al cloud
+- Integración DIAN API para emisión automática de FE y recepción de CUFE
+- Confirmar con contador la clasificación IVA de carne antes de implementar
+
+---
+
+## Estado actual del repositorio
+
+```
+donDavidSoftware/
+├── app/                          ← Proyecto Laravel completo
+│   ├── app/
+│   │   ├── Console/Commands/PrintWorker.php
+│   │   ├── Http/
+│   │   │   ├── Controllers/      ← 10 controladores
+│   │   │   └── Middleware/       ← EnsureLanAccess, EnsureAdmin
+│   │   ├── Models/               ← 8 modelos Eloquent
+│   │   └── Services/             ← SaleService, EscPosTicketRenderer
+│   ├── bootstrap/app.php         ← Aliases middleware lan + admin
+│   ├── database/
+│   │   ├── migrations/           ← 12 migraciones (todas aplicadas ✓)
+│   │   └── seeders/              ← 4 seeders (todos aplicados ✓)
+│   ├── resources/views/          ← 11 pantallas Blade + Alpine.js
+│   ├── routes/web.php            ← 31 rutas verificadas ✓
+│   └── .env                      ← Configurado para don_david DB
+├── README-INSTALL.md             ← Guía de instalación Windows
+├── .env.example                  ← Template documentado
+├── setup.sh                      ← Creó el proyecto Laravel
+├── setup_db.sh                   ← Creó DB y usuario PostgreSQL
+├── run_migrate.sh                ← Corre migraciones + seeders
+├── run_test.sh                   ← Verifica routes, key, extensiones
+└── historic_notes.md             ← Este archivo
+```
+
+**Credenciales de acceso:**
+
+| Usuario | Email | Contraseña | Rol |
+|---------|-------|-----------|-----|
+| Administrador | admin@dondavid.co | DonDavid2024! | Admin |
+| Cajero | cajero@dondavid.co | Cajero2024! | Cashier |
+
+**Para iniciar la app manualmente:**
+```bash
+# Terminal 1
+cd "C:/Users/rodri/OneDrive/COLDEVS/donDavidSoftware/app"
+php artisan serve --host=0.0.0.0 --port=8000
+
+# Terminal 2
+php artisan app:print-worker
+```
+Acceso: http://localhost:8000

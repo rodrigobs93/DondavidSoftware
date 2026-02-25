@@ -1,0 +1,115 @@
+BUSINESS CONTEXT
+- Business: butcher shop located in Paloquemao market (Bogotá). Sells beef and pork.
+- Sales channels: in-person at the shop + home deliveries (delivery fee sometimes applies).
+- Orders today: phone calls and WhatsApp; currently tracked manually (notes/paper).
+- Payments accepted from customers: cash, all cards, Nequi, Daviplata, Bre-B keys (bank transfer system). Sometimes payments need verification in the respective app.
+- Electronic invoicing: ONLY if the customer requests it. Currently done manually in the DIAN portal. Future integration with DIAN API is desired but NOT in MVP.
+- Accounts receivable (cartera): frequent customers (restaurants) may pay later or partially. Debts are usually short . The system must support partial payments applied to a specific invoice.
+- Inventory: NO inventory management in scope. Do not attempt to compute waste or stock.
+
+USERS AND DEVICES
+- Roles: Admin and Cashier.
+- Admin can access from outside the local network (internet). Cashier must be restricted to LAN only.
+- Hardware: one Windows PC at the point of sale, stable internet, and an 80mm generic USB thermal printer. The app must run locally even if the internet is down (at least on LAN).
+- Goal: Start as a LAN web app running on the POS PC, but later deploy to the cloud for external admin access. We want minimal future migration work.
+
+TECH STACK REQUIREMENTS
+- Backend: Laravel preferred.
+- Database: PostgreSQL FROM DAY 1 (even in local deployment) to avoid future migration from SQLite.
+- Access pattern: Web app served by the POS PC on LAN (e.g., http://192.168.x.x:port) so admin can use a mobile phone in the same Wi-Fi.
+- Printing: Tickets must print on the USB printer connected to the POS PC. Even if the admin creates a sale from mobile, printing must happen on the POS PC (“print bridge” / print jobs queue).
+
+CORE MVP FEATURES
+1) Products
+- Each product is sold EITHER by weight (KG) OR by unit (UNIT) only.
+- Products have: name, sale_unit (KG/UNIT), base_price (price per KG or per UNIT), active flag.
+- Price updates: done via a “quick price table” screen. Not all products change frequently; prices can remain unchanged for weeks/months.
+- Track minimal audit: products.price_updated_at and price_updated_by_user_id.
+- Only Admin can edit product prices.
+
+2) Customers
+- Customer records: name, doc_type (NIT or CC), doc_number, phone, address, email optional.
+- There is a special “GENERIC” customer for fast sales without data entry.
+- If “Requires Electronic Invoice (FE)” is enabled, GENERIC is NOT allowed and customer must have name + doc_type + doc_number.
+
+3) Sales / Invoices (internal invoices)
+- Each sale generates an internal invoice with a global numeric consecutive number, padded to 7 digits: “0000001”, “0000002”, … never resets.
+- Invoice items store snapshot values: product_name_snapshot, sale_unit_snapshot, quantity, unit_price, line_total.
+- Delivery fee optional.
+- Payments: allow multiple payment methods per invoice (split payments).
+- Invoice can be PAID, PARTIAL, or PENDING based on balance.
+- “Requires FE” flag: if true, invoice appears in a “Pending FE” list until manually marked as issued with a reference (e.g., CUFE or DIAN number).
+
+4) Accounts Receivable (Cartera)
+- Invoices with balance > 0 appear in Cartera.
+- Allow registering partial payments against a specific invoice later.
+- Update paid_amount, balance, and status accordingly.
+
+5) Reports
+- Daily (or date range) summary totals by payment method: CASH, CARD, NEQUI, DAVIPLATA, BREB.
+- Total sales and total outstanding balance.
+
+6) Printing (80mm thermal ticket)
+- Ticket prints automatically every time an invoice is finalized (no PDF “Excel-like” template, only thermal ticket).
+- Ticket content rules:
+  - Product name max 24 chars; if longer, truncate with ellipsis.
+  - Money format: COP like “$38.000” (thousands separated by dot, no decimals on ticket).
+  - Quantity format: KG up to 3 decimals (e.g., 1.250 kg). UNIT integer (e.g., 4 und).
+  - If requires FE: print customer name + “Doc: <NIT/CC> <number>”.
+  - FE line:
+    - “FE: NO” if not required
+    - “FE: PENDIENTE” if required and not issued
+    - “FE: EMITIDA - <reference>” if issued
+- Printing architecture:
+  - Create a print_jobs record (QUEUED) when invoice is finalized.
+  - A local print service/worker on the POS PC consumes queued print jobs and prints to the USB printer, then marks PRINTED or FAILED with error_message.
+  - This enables printing even when sale is created from a mobile device.
+
+FRONTEND STACK & REQUIREMENTS
+- Use Laravel Blade + Alpine.js (no React/Vue).
+- Responsive layout: must work on the POS PC (desktop) and on mobile (admin) via browser.
+- Prioritize POS speed: minimal clicks, keyboard-friendly product search, clear totals.
+- Core screens (Blade views):
+  1) Login
+  2) Dashboard (shortcuts + show LAN URL)
+  3) New Sale (customer picker default GENERIC, add items, delivery fee, FE toggle)
+  4) Checkout (split payments, finalize sale)
+  5) Invoice Detail (reprint, add payment/abono, FE mark issued)
+  6) Cartera (filters + register abonos to a specific invoice)
+  7) Pending FE list
+  8) Products quick price table (Admin only; inline edit base_price; show sale_unit; show last updated)
+  9) Customers (Admin only; edit; special prices per product)
+  10) Payment Summary report (daily/date range)
+  11) Backups (Admin only; export backup; allow saving to OneDrive folder path if configured)
+- Alpine.js behaviors:
+  - Product search/add item without page reload (Alpine components).
+  - Quantity input validation based on product.sale_unit:
+    - KG: decimals allowed up to 3.
+    - UNIT: integer only.
+  - Split payments UI (add/remove payment rows).
+  - FE toggle: if enabled, block GENERIC and require customer name + doc_type (NIT/CC) + doc_number.
+- Role-based UI:
+  - Hide/disable Admin-only actions for Cashier (products/customers/backup).
+  - Cashier access restricted to LAN at middleware level (not just UI).
+- Printing:
+  - No PDF templates. Thermal 80mm ticket only.
+  - Auto-print on finalize sale via print_jobs queue; allow reprint from invoice detail.
+
+SECURITY / ACCESS RULES
+- Login required.
+- Admin can access from anywhere.
+- Cashier must be blocked from non-LAN IPs (simple middleware logic based on private IP ranges is fine).
+- System must be LAN-friendly and robust.
+
+DELIVERABLE REQUEST
+Produce:
+- Recommended architecture diagram (textual is ok).
+- Database schema (tables + key fields + constraints).
+- API/UI module breakdown.
+- Backlog (user stories) prioritized into Phase 1 (MVP), Phase 2, Phase 3.
+- Implementation plan with milestones and a realistic order of development.
+- Notes on local deployment (POS PC) and future cloud deployment with the print bridge still running locally.
+- Include assumptions and risks (printing, network, backups).
+- Backup strategy MVP: a manual “Export backup” button.
+
+Important: do NOT include inventory management. Focus on invoicing, payments, cartera, FE queue, and thermal printing.
