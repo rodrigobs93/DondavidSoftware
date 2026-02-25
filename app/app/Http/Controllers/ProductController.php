@@ -51,6 +51,30 @@ class ProductController extends Controller
         return back()->with('success', 'Precio actualizado.');
     }
 
+    public function updateName(Request $request, Product $product)
+    {
+        $request->validate([
+            'name' => ['required', 'string', 'max:150'],
+        ]);
+
+        $product->update(['name' => $request->name]);
+
+        return response()->json(['success' => true, 'name' => $product->name]);
+    }
+
+    public function destroy(Product $product)
+    {
+        if ($product->invoiceItems()->exists()) {
+            $product->delete(); // soft-delete: keeps row for historical integrity
+            $message = "Producto eliminado. El historial de ventas se conserva.";
+        } else {
+            $product->forceDelete(); // hard-delete: never used, safe to remove completely
+            $message = 'Producto eliminado definitivamente.';
+        }
+
+        return back()->with('success', $message);
+    }
+
     public function toggleActive(Product $product)
     {
         $product->update(['active' => !$product->active]);

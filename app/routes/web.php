@@ -56,7 +56,9 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::post('/products/{product}/price', [ProductController::class, 'updatePrice'])->name('products.price');
+        Route::post('/products/{product}/name', [ProductController::class, 'updateName'])->name('products.name');
         Route::post('/products/{product}/toggle', [ProductController::class, 'toggleActive'])->name('products.toggle');
+        Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
 
         // Customers
         Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');

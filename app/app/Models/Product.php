@@ -3,9 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 class Product extends Model
 {
+    use SoftDeletes;
+
     protected $fillable = [
         'name', 'sale_unit', 'base_price', 'active',
         'price_updated_at', 'price_updated_by_user_id',
@@ -16,6 +19,11 @@ class Product extends Model
         'active'           => 'boolean',
         'price_updated_at' => 'datetime',
     ];
+
+    public function invoiceItems()
+    {
+        return $this->hasMany(InvoiceItem::class);
+    }
 
     public function priceUpdatedBy()
     {
