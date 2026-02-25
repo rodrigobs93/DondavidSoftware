@@ -170,11 +170,12 @@ class SaleService
                 'fe_label'     => $invoice->fe_label,
             ],
             'customer' => [
-                'name'       => $invoice->customer->name,
-                'is_generic' => $invoice->customer->is_generic,
-                'doc_type'   => $invoice->customer->doc_type,
-                'doc_number' => $invoice->customer->doc_number,
-                'doc_label'  => $invoice->customer->doc_label,
+                'name'          => $invoice->customer->name,
+                'business_name' => $invoice->customer->business_name,
+                'is_generic'    => $invoice->customer->is_generic,
+                'doc_type'      => $invoice->customer->doc_type,
+                'doc_number'    => $invoice->customer->doc_number,
+                'doc_label'     => $invoice->customer->doc_label,
             ],
             'items'    => $invoice->items->map(fn($item) => [
                 'product_name_snapshot' => $item->product_name_snapshot,

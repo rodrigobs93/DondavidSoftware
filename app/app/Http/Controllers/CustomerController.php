@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\CustomerProductPrice;
+use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
@@ -21,14 +24,15 @@ class CustomerController extends Controller
     public function store(Request $request)
     {
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:150'],
-            'doc_type'    => ['nullable', 'in:NIT,CC'],
-            'doc_number'  => ['nullable', 'string', 'max:30'],
-            'phone'       => ['nullable', 'string', 'max:30'],
-            'address'     => ['nullable', 'string'],
-            'email'       => ['nullable', 'email', 'max:150'],
-            'requires_fe' => ['boolean'],
-            'notes'       => ['nullable', 'string'],
+            'name'          => ['required', 'string', 'max:150'],
+            'business_name' => ['nullable', 'string', 'max:150', Rule::requiredIf($request->doc_type === 'NIT')],
+            'doc_type'      => ['nullable', 'in:NIT,CC'],
+            'doc_number'    => ['nullable', 'string', 'max:30'],
+            'phone'         => ['nullable', 'string', 'max:30'],
+            'address'       => ['nullable', 'string'],
+            'email'         => ['nullable', 'email', 'max:150'],
+            'requires_fe'   => ['boolean'],
+            'notes'         => ['nullable', 'string'],
         ]);
 
         Customer::create($data);
@@ -50,15 +54,16 @@ class CustomerController extends Controller
         }
 
         $data = $request->validate([
-            'name'        => ['required', 'string', 'max:150'],
-            'doc_type'    => ['nullable', 'in:NIT,CC'],
-            'doc_number'  => ['nullable', 'string', 'max:30'],
-            'phone'       => ['nullable', 'string', 'max:30'],
-            'address'     => ['nullable', 'string'],
-            'email'       => ['nullable', 'email', 'max:150'],
-            'requires_fe' => ['boolean'],
-            'notes'       => ['nullable', 'string'],
-            'active'      => ['boolean'],
+            'name'          => ['required', 'string', 'max:150'],
+            'business_name' => ['nullable', 'string', 'max:150', Rule::requiredIf($request->doc_type === 'NIT')],
+            'doc_type'      => ['nullable', 'in:NIT,CC'],
+            'doc_number'    => ['nullable', 'string', 'max:30'],
+            'phone'         => ['nullable', 'string', 'max:30'],
+            'address'       => ['nullable', 'string'],
+            'email'         => ['nullable', 'email', 'max:150'],
+            'requires_fe'   => ['boolean'],
+            'notes'         => ['nullable', 'string'],
+            'active'        => ['boolean'],
         ]);
 
         $customer->update($data);
@@ -78,5 +83,43 @@ class CustomerController extends Controller
             ->get(['id', 'name', 'doc_type', 'doc_number', 'is_generic', 'requires_fe']);
 
         return response()->json($customers);
+    }
+
+    // ── Special prices ──────────────────────────────────────────────────────
+
+    public function getPrices(Customer $customer)
+    {
+        $prices = $customer->specialPrices()
+            ->with('product:id,name,sale_unit')
+            ->orderBy('id')
+            ->get();
+
+        return response()->json($prices);
+    }
+
+    public function upsertPrice(Request $request, Customer $customer)
+    {
+        $request->validate([
+            'product_id' => ['required', 'exists:products,id'],
+            'price'      => ['required', 'numeric', 'min:0'],
+        ]);
+
+        $cpp = CustomerProductPrice::updateOrCreate(
+            ['customer_id' => $customer->id, 'product_id' => $request->product_id],
+            ['price' => $request->price]
+        );
+
+        $cpp->load('product:id,name,sale_unit');
+
+        return response()->json(['success' => true, 'record' => $cpp]);
+    }
+
+    public function deletePrice(Customer $customer, Product $product)
+    {
+        CustomerProductPrice::where('customer_id', $customer->id)
+            ->where('product_id', $product->id)
+            ->delete();
+
+        return response()->json(['success' => true]);
     }
 }

@@ -41,6 +41,9 @@ class EscPosTicketRenderer
         if ($invoice['requires_fe'] && !$customer['is_generic']) {
             $out .= $this->divider('-');
             $out .= "Cliente: {$customer['name']}" . self::LF;
+            if (!empty($customer['business_name'])) {
+                $out .= "Empresa: {$customer['business_name']}" . self::LF;
+            }
             if ($customer['doc_label']) {
                 $out .= "Doc: {$customer['doc_label']}" . self::LF;
             }

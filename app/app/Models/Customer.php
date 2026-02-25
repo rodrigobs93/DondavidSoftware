@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class Customer extends Model
 {
     protected $fillable = [
-        'name', 'doc_type', 'doc_number', 'phone', 'address',
+        'name', 'business_name', 'doc_type', 'doc_number', 'phone', 'address',
         'email', 'is_generic', 'requires_fe', 'notes', 'active',
     ];
 
@@ -20,6 +20,11 @@ class Customer extends Model
     public function invoices()
     {
         return $this->hasMany(Invoice::class);
+    }
+
+    public function specialPrices()
+    {
+        return $this->hasMany(CustomerProductPrice::class);
     }
 
     public function getDocLabelAttribute(): string

@@ -1,4 +1,4 @@
-<div class="space-y-4">
+<div class="space-y-4" x-data="{ docType: '{{ old('doc_type', $customer?->doc_type) }}' }">
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
         <input type="text" name="name" value="{{ old('name', $customer?->name) }}"
@@ -6,10 +6,24 @@
         @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
     </div>
 
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+            Nombre restaurante/razón social
+            <span x-show="docType === 'NIT'" class="text-red-500">*</span>
+        </label>
+        <input type="text" name="business_name" value="{{ old('business_name', $customer?->business_name) }}"
+            class="w-full border rounded px-3 py-2 text-sm"
+            placeholder="Restaurante La Leña S.A.S."
+            :required="docType === 'NIT'">
+        <p class="text-xs text-gray-400 mt-1" x-show="docType === 'NIT'">Requerido para clientes con NIT.</p>
+        @error('business_name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+    </div>
+
     <div class="grid grid-cols-2 gap-3">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Tipo doc.</label>
-            <select name="doc_type" class="w-full border rounded px-3 py-2 text-sm">
+            <select name="doc_type" @change="docType = $event.target.value"
+                class="w-full border rounded px-3 py-2 text-sm">
                 <option value="">Sin documento</option>
                 <option value="NIT" @selected(old('doc_type', $customer?->doc_type) === 'NIT')>NIT</option>
                 <option value="CC" @selected(old('doc_type', $customer?->doc_type) === 'CC')>C.C.</option>

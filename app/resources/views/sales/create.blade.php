@@ -128,6 +128,8 @@
                             <div class="text-xs text-gray-500">
                                 $<span x-text="formatNum(item.unit_price)"></span>
                                 / <span x-text="item.sale_unit === 'KG' ? 'kg' : 'und'"></span>
+                                <span x-show="customPrices[item.product_id] !== undefined"
+                                      class="ml-1 text-purple-600 font-semibold">precio especial</span>
                             </div>
                         </div>
 
@@ -252,6 +254,7 @@ function saleForm() {
         customerResults: [],
         showCustomerDropdown: false,
         selectedCustomer: null,
+        customPrices: {},
         productSearch: '',
         productResults: [],
         showProductDropdown: false,
@@ -300,11 +303,20 @@ function saleForm() {
             this.showCustomerDropdown = true;
         },
 
-        selectCustomer(c) {
+        async selectCustomer(c) {
             this.selectedCustomer = c;
             this.customerSearch = c.name;
             this.showCustomerDropdown = false;
             this.onFeToggle();
+            // Fetch special prices for this customer
+            const res = await fetch(`/customers/${c.id}/prices`);
+            const list = await res.json();
+            this.customPrices = Object.fromEntries(list.map(cp => [cp.product_id, parseFloat(cp.price)]));
+            // Re-price any items already in the cart
+            this.items.forEach(item => {
+                item.unit_price = this.customPrices[item.product_id] ?? item.base_price;
+                this.computeLineTotal(item);
+            });
         },
 
         onFeToggle() {
@@ -329,14 +341,17 @@ function saleForm() {
         },
 
         addProductItem(p) {
+            const basePrice = parseFloat(p.base_price);
+            const effectivePrice = this.customPrices[p.id] ?? basePrice;
             this.items.push({
                 _key: this._itemKey++,
                 product_id: p.id,
                 product_name: p.name,
                 sale_unit: p.sale_unit,
-                unit_price: parseFloat(p.base_price),
+                base_price: basePrice,
+                unit_price: effectivePrice,
                 quantity: p.sale_unit === 'KG' ? 1.000 : 1,
-                line_total: parseFloat(p.base_price),
+                line_total: effectivePrice,
                 qtyError: false,
             });
             this.computeLineTotal(this.items[this.items.length - 1]);

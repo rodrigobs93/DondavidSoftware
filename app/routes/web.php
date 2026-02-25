@@ -45,6 +45,9 @@ Route::middleware(['auth', 'lan'])->group(function () {
     Route::get('/products/search', [ProductController::class, 'search'])->name('products.search');
     Route::get('/customers/search', [CustomerController::class, 'search'])->name('customers.search');
 
+    // Customer special prices — readable by all authenticated users (cashiers need it during sales)
+    Route::get('/customers/{customer}/prices', [CustomerController::class, 'getPrices'])->name('customers.prices');
+
     // ─── Admin-only ──────────────────────────────────────────────────────────
     Route::middleware('admin')->group(function () {
 
@@ -66,6 +69,8 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
         Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
         Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+        Route::post('/customers/{customer}/prices', [CustomerController::class, 'upsertPrice'])->name('customers.prices.upsert');
+        Route::delete('/customers/{customer}/prices/{product}', [CustomerController::class, 'deletePrice'])->name('customers.prices.delete');
 
         // Reports
         Route::get('/reports/payments', [ReportController::class, 'payments'])->name('reports.payments');
