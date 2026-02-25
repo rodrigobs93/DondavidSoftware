@@ -153,7 +153,7 @@ Tres grupos:
 
 | # | Problema | Detalle |
 |---|---------|---------|
-| P1 | **`mb_str_pad()` no existe en PHP 8.2** | `EscPosTicketRenderer.php` usa `mb_str_pad()` que fue añadida en PHP 8.3. En PHP 8.2 lanzará `Error: Call to undefined function`. **Fix:** reemplazar con función manual usando `mb_strlen` + `str_pad`. |
+| P1 | ~~**`mb_str_pad()` no existe en PHP 8.2**~~ | **RESUELTO** — Reemplazado con `mb_strlen` + `str_repeat` en `pad()` y `padL()`. Commit `be0411a`. |
 | P2 | **Impresora térmica no probada** | No se ha ejecutado el Sprint 0 físico: enviar bytes ESC/POS al puerto COM del PC POS real e imprimir un tiquete de prueba. Sin este paso no se sabe si el driver COM funciona desde PHP. |
 
 ### Importante
@@ -179,16 +179,7 @@ Tres grupos:
 
 ### Inmediato (antes de primera prueba real)
 
-1. **Corregir `mb_str_pad()` en `EscPosTicketRenderer.php`**
-   Reemplazar:
-   ```php
-   mb_str_pad($text, $width, ' ', STR_PAD_RIGHT)
-   ```
-   Con:
-   ```php
-   $pad = $width - mb_strlen($text);
-   $text . ($pad > 0 ? str_repeat(' ', $pad) : '')
-   ```
+1. ~~**Corregir `mb_str_pad()` en `EscPosTicketRenderer.php`**~~ **HECHO** — commit `be0411a`.
 
 2. **Sprint 0 — Test de impresión físico**
    - Conectar la impresora USB
@@ -234,7 +225,7 @@ Tres grupos:
 
 ### Fase 2 (después de MVP estable en producción)
 
-- Precios especiales por cliente/producto (`customer_product_prices` ya tiene tabla)
+- ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`
 - Anulación de facturas (`voided` flag ya está en schema)
 - Historial de cambios de precio
 - CRUD de usuarios
@@ -274,14 +265,14 @@ donDavidSoftware/
 │   │   ├── Http/
 │   │   │   ├── Controllers/      ← 10 controladores
 │   │   │   └── Middleware/       ← EnsureLanAccess, EnsureAdmin
-│   │   ├── Models/               ← 8 modelos Eloquent
+│   │   ├── Models/               ← 9 modelos Eloquent (+ CustomerProductPrice)
 │   │   └── Services/             ← SaleService, EscPosTicketRenderer
 │   ├── bootstrap/app.php         ← Aliases middleware lan + admin
 │   ├── database/
-│   │   ├── migrations/           ← 12 migraciones (todas aplicadas ✓)
+│   │   ├── migrations/           ← 14 migraciones (todas aplicadas ✓)
 │   │   └── seeders/              ← 4 seeders (todos aplicados ✓)
 │   ├── resources/views/          ← 11 pantallas Blade + Alpine.js
-│   ├── routes/web.php            ← 31 rutas verificadas ✓
+│   ├── routes/web.php            ← 36 rutas verificadas ✓
 │   └── .env                      ← Configurado para don_david DB
 ├── README-INSTALL.md             ← Guía de instalación Windows
 ├── .env.example                  ← Template documentado
@@ -309,3 +300,65 @@ php artisan serve --host=0.0.0.0 --port=8000
 php artisan app:print-worker
 ```
 Acceso: http://localhost:8000
+
+---
+
+## Sesión 2026-02-25 — Mejoras módulos Products y Customers
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `be0411a` | fix: replace mb_str_pad() with PHP 8.2-compatible manual padding |
+| `5856906` | feat(products): add inline name edit and safe delete |
+| `4ff6e30` | feat(customers): add business_name field and special prices per customer |
+
+---
+
+### feat: Products — edición de nombre + eliminación segura
+
+**Archivos modificados:**
+- `app/Models/Product.php` — añadido `SoftDeletes` trait + `invoiceItems()` hasMany
+- `app/Http/Controllers/ProductController.php` — nuevos métodos `updateName()` y `destroy()`
+- `routes/web.php` — rutas `POST /products/{id}/name` y `DELETE /products/{id}`
+- `resources/views/products/index.blade.php` — componente Alpine.js `productRow()` unificado
+- `database/migrations/2026_02_25_000000_add_deleted_at_to_products_table.php` — añade `deleted_at`
+
+**Comportamiento:**
+- Nombre: clic en la celda abre input inline; Enter/OK guarda vía AJAX; Escape cancela
+- Eliminar: si el producto tiene historial en `invoice_items` → soft-delete (fila preservada en BD); si nunca fue usado → hard-delete
+- Productos soft-deleted quedan excluidos automáticamente del autocomplete de ventas (SoftDeletes trait)
+
+---
+
+### feat: Customers — campo business_name + precios especiales
+
+#### Campo business_name
+
+**Archivos modificados:**
+- `database/migrations/2026_02_25_000001_add_business_name_to_customers_table.php` — añade columna `business_name VARCHAR(150) NULL`
+- `app/Models/Customer.php` — añadido a `$fillable`
+- `app/Http/Controllers/CustomerController.php` — validación `Rule::requiredIf(doc_type === 'NIT')` en `store()` y `update()`
+- `resources/views/customers/_form.blade.php` — nuevo campo con Alpine.js reactivo: asterisco rojo y hint aparecen al seleccionar NIT; campo se vuelve `required` en HTML
+- `app/Services/SaleService.php` — `business_name` añadido al payload JSONB del print_job
+- `app/Services/EscPosTicketRenderer.php` — imprime línea `Empresa: ...` en el tiquete cuando el cliente tiene `business_name` (solo en facturas con FE)
+
+#### Precios especiales por cliente
+
+**Archivos nuevos/modificados:**
+- `app/Models/CustomerProductPrice.php` — nuevo modelo con relaciones `belongsTo` Customer y Product
+- `app/Models/Customer.php` — añadida relación `specialPrices()` hasMany
+- `app/Http/Controllers/CustomerController.php` — métodos `getPrices()`, `upsertPrice()`, `deletePrice()`
+- `routes/web.php`:
+  - `GET /customers/{id}/prices` → grupo auth+lan (el cajero lo necesita al crear ventas)
+  - `POST /customers/{id}/prices` y `DELETE /customers/{id}/prices/{product}` → grupo admin
+- `resources/views/customers/edit.blade.php` — nueva tarjeta "Precios especiales" con:
+  - Tabla de precios existentes con botón Quitar
+  - Buscador de producto + input de precio + botón Guardar (upsert vía AJAX)
+  - Pre-rellena el precio si el producto ya tiene precio especial
+- `resources/views/sales/create.blade.php`:
+  - `selectCustomer()` ahora hace fetch de `/customers/{id}/prices` y cachea en `customPrices {}`
+  - `addProductItem()` usa `customPrices[p.id] ?? base_price` como precio efectivo
+  - Guarda `base_price` en cada item para poder revertir si cambia el cliente
+  - Al cambiar cliente, re-pricings todos los items ya en el carrito
+  - Badge "precio especial" en morado para items con precio especial activo
