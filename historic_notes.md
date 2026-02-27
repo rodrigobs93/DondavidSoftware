@@ -231,7 +231,7 @@ Tres grupos:
 
 | Commit | Descripción |
 |--------|------------|
-| *(pendiente)* | feat(categories): add product categories module with inline editing |
+| `d65950d` | feat(categories): add product categories module with inline editing |
 
 ---
 
@@ -317,7 +317,7 @@ Total rutas: **42** (antes 36).
 
 | Commit | Descripción |
 |--------|------------|
-| *(pendiente)* | fix(products): add Accept header to savePrice fetch so edit mode exits on success |
+| `d87e099` | fix(products): add Accept header to savePrice fetch so edit mode exits on success |
 
 ---
 
