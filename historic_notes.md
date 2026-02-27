@@ -351,8 +351,7 @@ Los otros dos endpoints inline (`saveName`, `saveCategory`) no tenían el proble
 
 | Commit | Descripción |
 |--------|------------|
-| *(pendiente)* | feat(customers): live search bar + safe delete with soft-delete |
-| *(pendiente)* | fix(invoices): withTrashed on customer relation to handle soft-deleted customers |
+| `a0837de` | feat(customers): live search bar + safe delete with soft-delete + fix Invoice::customer withTrashed |
 
 ---
 
