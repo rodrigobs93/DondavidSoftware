@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\LoginController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CarteraController;
+use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FePendingController;
@@ -60,8 +61,16 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
         Route::post('/products/{product}/price', [ProductController::class, 'updatePrice'])->name('products.price');
         Route::post('/products/{product}/name', [ProductController::class, 'updateName'])->name('products.name');
+        Route::post('/products/{product}/category', [ProductController::class, 'updateCategory'])->name('products.category');
         Route::post('/products/{product}/toggle', [ProductController::class, 'toggleActive'])->name('products.toggle');
         Route::delete('/products/{product}', [ProductController::class, 'destroy'])->name('products.destroy');
+
+        // Product categories
+        Route::get('/categories', [CategoryController::class, 'index'])->name('categories.index');
+        Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+        Route::post('/categories/{category}', [CategoryController::class, 'update'])->name('categories.update');
+        Route::post('/categories/{category}/toggle', [CategoryController::class, 'toggleActive'])->name('categories.toggle');
+        Route::delete('/categories/{category}', [CategoryController::class, 'destroy'])->name('categories.destroy');
 
         // Customers
         Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');

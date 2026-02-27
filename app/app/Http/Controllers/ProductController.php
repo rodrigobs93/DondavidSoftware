@@ -3,26 +3,55 @@
 namespace App\Http\Controllers;
 
 use App\Models\Product;
+use App\Models\ProductCategory;
 use Illuminate\Http\Request;
 
 class ProductController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $products = Product::with('priceUpdatedBy')->orderBy('name')->get();
-        return view('products.index', compact('products'));
+        $search     = $request->input('search', '');
+        $categoryId = $request->input('category_id', '');
+
+        $products = Product::with(['priceUpdatedBy', 'category'])
+            ->when($search,     fn($q) => $q->where('name', 'ilike', "%{$search}%"))
+            ->when($categoryId, fn($q) => $q->where('category_id', $categoryId))
+            ->orderByDesc('active')
+            ->orderBy('name')
+            ->get();
+
+        $categories = ProductCategory::where('active', true)->orderBy('name')->get();
+
+        if ($request->wantsJson()) {
+            return response()->json($products->map(fn ($p) => [
+                'id'               => $p->id,
+                'name'             => $p->name,
+                'sale_unit'        => $p->sale_unit,
+                'base_price'       => (string) $p->base_price,
+                'category_id'      => $p->category_id,
+                'category_name'    => $p->category?->name,
+                'active'           => $p->active,
+                'price_updated_at' => $p->price_updated_at
+                                        ?->setTimezone('America/Bogota')->format('d/m/Y H:i'),
+                'price_updated_by' => $p->priceUpdatedBy?->name,
+            ]));
+        }
+
+        return view('products.index', compact('products', 'categories', 'search', 'categoryId'));
     }
 
     public function store(Request $request)
     {
         $request->validate([
-            'name'       => ['required', 'string', 'max:150'],
-            'sale_unit'  => ['required', 'in:KG,UNIT'],
-            'base_price' => ['required', 'numeric', 'min:0'],
+            'name'        => ['required', 'string', 'max:150'],
+            'sale_unit'   => ['required', 'in:KG,UNIT'],
+            'base_price'  => ['required', 'numeric', 'min:0'],
+            'category_id' => ['nullable', 'exists:product_categories,id'],
         ]);
 
         Product::create([
             'name'                     => $request->name,
+            'category_id'              => $request->category_id ?: null,
             'sale_unit'                => $request->sale_unit,
             'base_price'               => $request->base_price,
             'price_updated_at'         => now(),
@@ -62,13 +91,27 @@ class ProductController extends Controller
         return response()->json(['success' => true, 'name' => $product->name]);
     }
 
+    public function updateCategory(Request $request, Product $product)
+    {
+        $request->validate([
+            'category_id' => ['nullable', 'exists:product_categories,id'],
+        ]);
+
+        $categoryId = $request->category_id ?: null;
+        $product->update(['category_id' => $categoryId]);
+
+        $categoryName = $categoryId ? ProductCategory::find($categoryId)?->name : null;
+
+        return response()->json(['success' => true, 'category_id' => $categoryId, 'category_name' => $categoryName]);
+    }
+
     public function destroy(Product $product)
     {
         if ($product->invoiceItems()->exists()) {
-            $product->delete(); // soft-delete: keeps row for historical integrity
-            $message = "Producto eliminado. El historial de ventas se conserva.";
+            $product->delete();
+            $message = 'Producto eliminado. El historial de ventas se conserva.';
         } else {
-            $product->forceDelete(); // hard-delete: never used, safe to remove completely
+            $product->forceDelete();
             $message = 'Producto eliminado definitivamente.';
         }
 

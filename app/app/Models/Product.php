@@ -10,7 +10,7 @@ class Product extends Model
     use SoftDeletes;
 
     protected $fillable = [
-        'name', 'sale_unit', 'base_price', 'active',
+        'name', 'category_id', 'sale_unit', 'base_price', 'active',
         'price_updated_at', 'price_updated_by_user_id',
     ];
 
@@ -19,6 +19,11 @@ class Product extends Model
         'active'           => 'boolean',
         'price_updated_at' => 'datetime',
     ];
+
+    public function category()
+    {
+        return $this->belongsTo(ProductCategory::class, 'category_id');
+    }
 
     public function invoiceItems()
     {

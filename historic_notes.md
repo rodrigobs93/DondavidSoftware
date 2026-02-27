@@ -223,6 +223,94 @@ Tres grupos:
 
 8. **Verificar backup path** con ruta OneDrive real configurada en Settings.
 
+---
+
+## Sesión 2026-02-27 — Módulo de Categorías de Productos
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| *(pendiente)* | feat(categories): add product categories module with inline editing |
+
+---
+
+### feat: Categorías de productos
+
+Se implementó un módulo completo de categorías para organizar el catálogo de productos.
+
+#### Migraciones nuevas
+
+| Migración | Descripción |
+|-----------|-------------|
+| `2026_02_27_000002_create_product_categories_table.php` | Crea tabla `product_categories` (`id`, `name`, `active`, timestamps). Índice único case-insensitive en `lower(name)` via raw SQL PostgreSQL. |
+| `2026_02_27_000003_add_category_id_to_products_table.php` | Añade FK `category_id` nullable a `products`; `onDelete('set null')` para preservar productos al borrar categoría. |
+
+#### Modelo nuevo
+
+- **`ProductCategory`** — `$fillable = ['name', 'active']`; relación `products()` hasMany.
+
+#### Modelo modificado
+
+- **`Product`** — añadida relación `category()` belongsTo `ProductCategory`.
+
+#### Controlador nuevo
+
+- **`CategoryController`** — 5 métodos:
+  - `index()` — lista con `withCount('products')`
+  - `store()` — valida `name` único (Rule::unique)
+  - `update()` — edición inline vía JSON (nombre + active)
+  - `toggleActive()` — activa/desactiva
+  - `destroy()` — elimina categoría; productos quedan con `category_id = null`
+
+#### Controlador modificado
+
+- **`ProductController`**:
+  - `index()` — filtra por `category_id`; eager-load `category`; incluye `category_id` y `category_name` en respuesta JSON
+  - `updateCategory()` — nuevo método; actualiza `category_id` de un producto vía AJAX; retorna `category_id` y `category_name`
+
+#### Rutas nuevas (6)
+
+```
+GET    /categories                     categories.index
+POST   /categories                     categories.store
+POST   /categories/{category}          categories.update
+POST   /categories/{category}/toggle   categories.toggle
+DELETE /categories/{category}          categories.destroy
+POST   /products/{product}/category    products.category
+```
+
+Total rutas: **42** (antes 36).
+
+#### Vista nueva
+
+- **`categories/index.blade.php`** — tabla con:
+  - Edición inline de nombre (Alpine.js `categoryRow()`, AJAX PATCH)
+  - Conteo de productos asignados (badge)
+  - Toggle activa/inactiva
+  - Eliminar con confirm dinámico: avisa cuántos productos quedarán sin categoría
+
+#### Vista modificada
+
+- **`products/index.blade.php`** — actualizaciones:
+  - Barra de filtro ampliada con select de **Categoría**
+  - Nueva columna "Categoría" en la tabla de productos
+  - Dropdown inline para asignar/cambiar categoría sin recargar (AJAX)
+  - Enlace "Gestionar categorías →" en el header
+  - Formulario de creación incluye selector de categoría
+
+#### Resumen de artefactos
+
+| Tipo | Antes | Ahora |
+|------|-------|-------|
+| Tablas DB | 14 | 16 |
+| Modelos | 9 | 10 |
+| Controladores | 10 | 11 |
+| Rutas | 36 | 42 |
+| Vistas | 12 pantallas | 13 pantallas |
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`
@@ -263,16 +351,16 @@ donDavidSoftware/
 │   ├── app/
 │   │   ├── Console/Commands/PrintWorker.php
 │   │   ├── Http/
-│   │   │   ├── Controllers/      ← 10 controladores
+│   │   │   ├── Controllers/      ← 11 controladores (+ CategoryController)
 │   │   │   └── Middleware/       ← EnsureLanAccess, EnsureAdmin
-│   │   ├── Models/               ← 9 modelos Eloquent (+ CustomerProductPrice)
+│   │   ├── Models/               ← 10 modelos Eloquent (+ ProductCategory)
 │   │   └── Services/             ← SaleService, EscPosTicketRenderer
 │   ├── bootstrap/app.php         ← Aliases middleware lan + admin
 │   ├── database/
-│   │   ├── migrations/           ← 14 migraciones (todas aplicadas ✓)
+│   │   ├── migrations/           ← 16 migraciones (14 aplicadas ✓ + 2 pendientes)
 │   │   └── seeders/              ← 4 seeders (todos aplicados ✓)
-│   ├── resources/views/          ← 11 pantallas Blade + Alpine.js
-│   ├── routes/web.php            ← 36 rutas verificadas ✓
+│   ├── resources/views/          ← 13 pantallas Blade + Alpine.js
+│   ├── routes/web.php            ← 42 rutas
 │   └── .env                      ← Configurado para don_david DB
 ├── README-INSTALL.md             ← Guía de instalación Windows
 ├── .env.example                  ← Template documentado
