@@ -165,13 +165,14 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                             <form x-show="editingPrice" x-cloak @submit.prevent="savePrice()" class="flex items-center gap-1 justify-end">
                                 <span class="text-gray-500">$</span>
                                 <input type="number" x-model.number="newPrice" x-ref="priceInput"
-                                    @keydown.escape="editingPrice=false" min="0" step="100"
+                                    @keydown.escape="editingPrice=false; priceError=''" min="0" step="100"
                                     class="border rounded px-2 py-1 text-sm w-24 text-right"
                                     x-init="$watch('editingPrice', v => { if(v) $nextTick(()=>$refs.priceInput.focus()); })">
                                 <button type="submit" class="pos-btn-success py-1 text-xs">OK</button>
-                                <button type="button" @click="editingPrice=false" class="pos-btn-secondary py-1 text-xs">✕</button>
+                                <button type="button" @click="editingPrice=false; priceError=''" class="pos-btn-secondary py-1 text-xs">✕</button>
                             </form>
-                            <span x-show="savedPrice" x-cloak class="text-green-500 text-xs ml-1">✓ Guardado</span>
+                            <span x-show="savedPrice" x-cloak class="text-green-500 text-xs block mt-0.5">✓ Guardado</span>
+                            <span x-show="priceError" x-cloak x-text="priceError" class="text-red-500 text-xs block mt-0.5"></span>
                         </td>
                         {{-- Updated --}}
                         <td class="px-4 py-3 text-xs text-gray-400">
@@ -256,20 +257,28 @@ function productRowData(p) {
         // ── Price ──
         editingPrice: false,
         savedPrice: false,
+        priceError: '',
         price: parseFloat(p.base_price),
         newPrice: parseFloat(p.base_price),
         async savePrice() {
-            const res = await fetch(`/products/${this.productId}/price`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf() },
-                body: JSON.stringify({ base_price: this.newPrice }),
-            });
-            const data = await res.json();
-            if (data.success) {
-                this.price = this.newPrice;
-                this.editingPrice = false;
-                this.savedPrice = true;
-                setTimeout(() => this.savedPrice = false, 2000);
+            this.priceError = '';
+            try {
+                const res = await fetch(`/products/${this.productId}/price`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() },
+                    body: JSON.stringify({ base_price: this.newPrice }),
+                });
+                const data = await res.json();
+                if (data.success) {
+                    this.price = this.newPrice;
+                    this.editingPrice = false;
+                    this.savedPrice = true;
+                    setTimeout(() => this.savedPrice = false, 2000);
+                } else {
+                    this.priceError = data.message || 'Error al guardar.';
+                }
+            } catch {
+                this.priceError = 'Error de conexión.';
             }
         },
         // ── Name ──

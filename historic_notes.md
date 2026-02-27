@@ -311,6 +311,40 @@ Total rutas: **42** (antes 36).
 
 ---
 
+## Sesión 2026-02-27 — Bug fix: precio inline no cerraba edición al guardar
+
+### Commit de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| *(pendiente)* | fix(products): add Accept header to savePrice fetch so edit mode exits on success |
+
+---
+
+### fix: `savePrice()` quedaba en modo edición tras guardar exitosamente
+
+**Archivo modificado:** `resources/views/products/index.blade.php`
+
+#### Causa raíz
+
+`savePrice()` hacía `fetch` con header `Content-Type: application/json` pero **sin** `Accept: application/json`.
+`$request->wantsJson()` en `ProductController::updatePrice()` verifica ese header — al no estar presente devolvía `redirect()->back()` (302) en lugar de JSON.
+El navegador seguía la redirección y recibía HTML; `res.json()` lanzaba `SyntaxError`; el bloque `if (data.success)` nunca ejecutaba; `editingPrice` se quedaba `true` y el input permanecía visible.
+
+Los otros dos endpoints inline (`saveName`, `saveCategory`) no tenían el problema porque sus controladores siempre retornan `response()->json(...)` incondicionalmente.
+
+#### Cambios
+
+| Zona | Antes | Después |
+|------|-------|---------|
+| `savePrice()` headers | solo `Content-Type` | + `Accept: application/json` (fix raíz) |
+| Manejo de error | ninguno — fallo silencioso | `try/catch` + estado `priceError` |
+| Caso error | edit mode bloqueado sin feedback | edit mode permanece abierto, muestra mensaje en rojo |
+| Cancelar / Escape | solo `editingPrice=false` | también limpia `priceError` |
+| Indicador guardado | `ml-1` inline | `block mt-0.5` para no solapar la fila del input |
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`
