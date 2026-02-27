@@ -10,10 +10,34 @@ use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
-    public function index()
+    public function index(Request $request)
     {
-        $customers = Customer::orderByRaw('is_generic DESC, name ASC')->paginate(30);
-        return view('customers.index', compact('customers'));
+        $search = $request->input('search', '');
+
+        $query = Customer::orderByRaw('is_generic DESC, name ASC')
+            ->when($search, fn($q) => $q->where(function ($q) use ($search) {
+                $q->where('name', 'ilike', "%{$search}%")
+                  ->orWhere('business_name', 'ilike', "%{$search}%");
+            }));
+
+        $toRow = fn($c) => [
+            'id'          => $c->id,
+            'name'        => $c->name,
+            'is_generic'  => $c->is_generic,
+            'doc_label'   => $c->doc_label ?: null,
+            'phone'       => $c->phone,
+            'requires_fe' => $c->requires_fe,
+            'active'      => $c->active,
+        ];
+
+        if ($request->wantsJson()) {
+            return response()->json($query->get()->map($toRow));
+        }
+
+        $customers   = $query->paginate(30)->withQueryString();
+        $initialData = $customers->map($toRow);
+
+        return view('customers.index', compact('customers', 'search', 'initialData'));
     }
 
     public function create()
@@ -83,6 +107,23 @@ class CustomerController extends Controller
             ->get(['id', 'name', 'doc_type', 'doc_number', 'is_generic', 'requires_fe']);
 
         return response()->json($customers);
+    }
+
+    public function destroy(Customer $customer)
+    {
+        if ($customer->is_generic) {
+            abort(403, 'El cliente GENÉRICO no se puede eliminar.');
+        }
+
+        if ($customer->invoices()->exists()) {
+            $customer->delete(); // soft delete — preserves invoice references
+            $message = 'Cliente eliminado. El historial de facturas se conserva.';
+        } else {
+            $customer->forceDelete();
+            $message = 'Cliente eliminado definitivamente.';
+        }
+
+        return redirect()->route('customers.index')->with('success', $message);
     }
 
     // ── Special prices ──────────────────────────────────────────────────────

@@ -345,6 +345,103 @@ Los otros dos endpoints inline (`saveName`, `saveCategory`) no tenían el proble
 
 ---
 
+## Sesión 2026-02-27 — Mejoras módulo Clientes (búsqueda live + eliminación segura)
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| *(pendiente)* | feat(customers): live search bar + safe delete with soft-delete |
+| *(pendiente)* | fix(invoices): withTrashed on customer relation to handle soft-deleted customers |
+
+---
+
+### feat: Búsqueda en tiempo real en lista de clientes
+
+**Archivos modificados:**
+- `app/Http/Controllers/CustomerController.php` — `index()` refactorizado
+- `resources/views/customers/index.blade.php` — convertido a Alpine.js reactivo
+
+#### Comportamiento
+
+- Input único busca en `name` OR `business_name` (`ilike`, partial match, case-insensitive PostgreSQL)
+- Debounce 400 ms — no hace request por cada tecla
+- Mientras escribe: spinner "Buscando…" + tabla con `opacity-50`
+- Sin resultados: fila vacía "No se encontraron clientes."
+- Botón "Limpiar": visible solo cuando hay término activo; al pulsarlo restaura estado inicial sin fetch adicional
+- URL actualizada con `history.replaceState` (`/customers?search=...`)
+- Paginación visible solo cuando `!searching`; paginador usa `withQueryString()` para conservar el término en los links de página
+
+#### Cambios técnicos
+
+- `CustomerController::index()` ahora acepta `?search=`, filtra, y cuando `wantsJson()` devuelve array plano (sin paginar)
+- Vista convierte el `@foreach` Blade a `<template x-for>` alimentado por `__initialCustomers` (JSON del primer render) sin request extra en carga inicial
+- Campos en JSON: `id, name, is_generic, doc_label, phone, requires_fe, active`
+- `$customers->paginate(30)->withQueryString()` — los links de paginación preservan `?search=`
+
+---
+
+### feat: Eliminación segura de clientes (soft delete)
+
+**Archivos nuevos/modificados:**
+
+| Archivo | Cambio |
+|---------|--------|
+| `database/migrations/2026_02_27_000004_add_deleted_at_to_customers_table.php` | Nueva migración: añade `deleted_at TIMESTAMPTZ NULL` con `softDeletesTz()` |
+| `app/Models/Customer.php` | Añadido trait `SoftDeletes` |
+| `app/Http/Controllers/CustomerController.php` | Nuevo método `destroy()` |
+| `routes/web.php` | Nueva ruta `DELETE /customers/{customer}` en grupo admin |
+| `resources/views/customers/index.blade.php` | Botón "Eliminar" con confirm dialog |
+
+#### Lógica de eliminación (`destroy()`)
+
+| Caso | Acción | Mensaje flash |
+|------|--------|---------------|
+| `is_generic` | `abort(403)` | — |
+| Tiene facturas | `$customer->delete()` (soft) | "historial de facturas se conserva" |
+| Sin facturas | `$customer->forceDelete()` | "eliminado definitivamente" |
+
+#### Efectos del SoftDeletes trait (automáticos, sin cambios adicionales)
+
+- `Customer::all()`, `CustomerController::index()`, `CustomerController::search()` → excluyen automáticamente clientes eliminados (scope global `deleted_at IS NULL`)
+- Autocomplete de ventas (`/customers/search`) → excluye eliminados sin cambio de código
+- Cartera, FE pendiente, reportes → no muestran clientes eliminados en nuevas selecciones
+
+#### Seguridad
+
+- Ruta `DELETE /customers/{customer}` solo en grupo `middleware('admin')` → cajero no puede acceder
+
+---
+
+### fix: `Invoice::customer()` devolvía `null` tras soft-delete de cliente
+
+**Archivo modificado:** `app/Models/Invoice.php`
+
+**Causa:** Al añadir `SoftDeletes` al modelo `Customer`, Eloquent añade el scope global `WHERE deleted_at IS NULL` a todas las queries, incluyendo las relaciones. Al cargar `$invoice->customer`, el JOIN filtraba el cliente eliminado y devolvía `null`, causando `Attempt to read property "name" on null` en `/invoices`.
+
+**Fix:** `Invoice::customer()` ahora usa `->withTrashed()` para bypass del scope de soft-delete en esa relación específica. Semánticamente correcto: una factura siempre tiene un cliente (FK NOT NULL), y ese cliente debe poder recuperarse incluso si fue eliminado del sistema.
+
+```php
+// Invoice.php
+public function customer()
+{
+    return $this->belongsTo(Customer::class)->withTrashed();
+}
+```
+
+**Otras relaciones analizadas:** `CustomerProductPrice::customer()` no necesita `withTrashed()` porque solo se accede a través de route model binding desde un `Customer` vivo.
+
+---
+
+### Resumen de artefactos tras esta sesión
+
+| Tipo | Antes | Ahora |
+|------|-------|-------|
+| Migraciones | 16 (14 aplicadas) | 17 (todas aplicadas ✓) |
+| Rutas | 42 | 43 |
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`

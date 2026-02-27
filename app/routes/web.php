@@ -78,6 +78,7 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
         Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
         Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
+        Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
         Route::post('/customers/{customer}/prices', [CustomerController::class, 'upsertPrice'])->name('customers.prices.upsert');
         Route::delete('/customers/{customer}/prices/{product}', [CustomerController::class, 'deletePrice'])->name('customers.prices.delete');
 
