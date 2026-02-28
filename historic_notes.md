@@ -449,7 +449,7 @@ public function customer()
 
 | Commit | Descripción |
 |--------|------------|
-| *(pendiente stamp)* | feat(invoices): live search + date range + status filter |
+| `b864167` | feat(invoices): live search + date range + status filter |
 
 ---
 
