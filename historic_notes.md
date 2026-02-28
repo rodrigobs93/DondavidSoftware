@@ -441,6 +441,60 @@ public function customer()
 
 ---
 
+---
+
+## Sesión 2026-02-27 — Facturas: búsqueda live + filtros de fecha y estado
+
+### Commit de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| *(pendiente stamp)* | feat(invoices): live search + date range + status filter |
+
+---
+
+### feat: Lista de facturas — búsqueda en tiempo real + filtros
+
+**Archivos modificados:**
+- `app/Http/Controllers/InvoiceController.php` — `index()` refactorizado
+- `resources/views/invoices/index.blade.php` — convertido a Alpine.js reactivo
+
+#### Comportamiento
+
+- **Barra de búsqueda:** busca en `consecutive` OR `customer.name` OR `customer.business_name` (`ilike`, parcial, case-insensitive PostgreSQL)
+- **Filtros de fecha:** campos Desde/Hasta; acepta solo uno de los dos o ambos (rango inclusivo)
+- **Chips de estado:** Todas / Pagadas / Parciales / Pendientes — activo resaltado en azul
+- Debounce 400 ms en el input de texto; date pickers y chips disparan fetch inmediato
+- Mientras carga: spinner "Buscando…" + tabla con `opacity-50 pointer-events-none`
+- Botón **Limpiar**: visible solo cuando `hasFilters` (computed getter Alpine.js); restaura `__initialInvoices` sin fetch extra
+- URL actualizada con `history.replaceState` para que el navegador refleje los filtros activos
+- **Paginación:** visible solo cuando `!hasFilters`; al activar cualquier filtro se oculta
+
+#### Cambios técnicos — `InvoiceController::index()`
+
+| Parámetro | Fuente | Descripción |
+|-----------|--------|-------------|
+| `q` | `?q=` | Busca en `consecutive` + `whereHas('customer', withTrashed)` en `name` y `business_name` |
+| `status` | `?status=` | `PAID`, `PARTIAL`, `PENDING` o vacío (todas) |
+| `start_date` | `?start_date=` | `whereDate('invoice_date', '>=', ...)` |
+| `end_date` | `?end_date=` | `whereDate('invoice_date', '<=', ...)` |
+
+- `wantsJson()` → devuelve array plano; acepta header `Accept: application/json`
+- `paginate(20)->withQueryString()` para preservar filtros en los links de paginación (modo HTML)
+- `whereHas` + `withTrashed()` permite buscar por nombre de clientes soft-deleted sin romper la query
+
+#### Cambios técnicos — `invoices/index.blade.php`
+
+- Componente `invoiceFilter()` con bridge PHP→JS:
+  - `__initialInvoices = {!! json_encode($initialData, JSON_HEX_TAG) !!}` — datos del primer render
+  - `__initialQ/Status/StartDate/EndDate = @js(...)` — valores iniciales de URL
+- Tabla `<template x-for="inv in invoices">` — reactive, sin Blade `@foreach`
+- Badges de estado con `:class` object binding (`badge-paid`, `badge-partial`, `badge-pending`)
+- Badges FE con `:class` (`bg-green-100 ISSUED` / `bg-blue-100 PENDING` / `bg-gray-100 NONE`)
+- Función `fmt(val)` — formato moneda COP: `$` + `toLocaleString('es-CO', { maximumFractionDigits: 0 })`
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`

@@ -12,19 +12,62 @@ class InvoiceController extends Controller
 
     public function index(Request $request)
     {
-        $query = Invoice::with('customer', 'createdBy')
+        $q         = $request->input('q', '');
+        $status    = $request->input('status', '');
+        $startDate = $request->input('start_date', '');
+        $endDate   = $request->input('end_date', '');
+
+        $query = Invoice::with('customer')
             ->where('voided', false)
             ->orderBy('created_at', 'desc');
 
-        if ($request->filled('q')) {
-            $query->where('consecutive', 'like', "%{$request->q}%");
-        }
-        if ($request->filled('status')) {
-            $query->where('status', $request->status);
+        if ($q) {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('consecutive', 'ilike', "%{$q}%")
+                    ->orWhereHas('customer', fn($cq) => $cq
+                        ->withTrashed()
+                        ->where(fn($q2) => $q2
+                            ->where('name', 'ilike', "%{$q}%")
+                            ->orWhere('business_name', 'ilike', "%{$q}%")
+                        )
+                    );
+            });
         }
 
-        $invoices = $query->paginate(20)->withQueryString();
-        return view('invoices.index', compact('invoices'));
+        if ($status) {
+            $query->where('status', $status);
+        }
+
+        if ($startDate && $endDate) {
+            $query->whereDate('invoice_date', '>=', $startDate)
+                  ->whereDate('invoice_date', '<=', $endDate);
+        } elseif ($startDate) {
+            $query->whereDate('invoice_date', $startDate);
+        } elseif ($endDate) {
+            $query->whereDate('invoice_date', $endDate);
+        }
+
+        $toRow = fn($inv) => [
+            'id'            => $inv->id,
+            'consecutive'   => $inv->consecutive,
+            'invoice_date'  => $inv->invoice_date->format('d/m/Y'),
+            'customer_name' => $inv->customer?->name ?? '—',
+            'total'         => (string) $inv->total,
+            'balance'       => (string) $inv->balance,
+            'status'        => $inv->status,
+            'fe_status'     => $inv->fe_status,
+        ];
+
+        if ($request->wantsJson()) {
+            return response()->json($query->get()->map($toRow));
+        }
+
+        $invoices    = $query->paginate(20)->withQueryString();
+        $initialData = $invoices->map($toRow);
+
+        return view('invoices.index', compact(
+            'invoices', 'initialData', 'q', 'status', 'startDate', 'endDate'
+        ));
     }
 
     public function show(Invoice $invoice)
