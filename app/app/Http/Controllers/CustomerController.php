@@ -51,7 +51,11 @@ class CustomerController extends Controller
             'name'          => ['required', 'string', 'max:150'],
             'business_name' => ['nullable', 'string', 'max:150', Rule::requiredIf($request->doc_type === 'NIT')],
             'doc_type'      => ['nullable', 'in:NIT,CC'],
-            'doc_number'    => ['nullable', 'string', 'max:30'],
+            'doc_number'    => ['nullable', 'string', 'max:30',
+                Rule::unique('customers', 'doc_number')
+                    ->where('doc_type', $request->doc_type)
+                    ->whereNull('deleted_at'),
+            ],
             'phone'         => ['nullable', 'string', 'max:30'],
             'address'       => ['nullable', 'string'],
             'email'         => ['nullable', 'email', 'max:150'],
@@ -81,7 +85,12 @@ class CustomerController extends Controller
             'name'          => ['required', 'string', 'max:150'],
             'business_name' => ['nullable', 'string', 'max:150', Rule::requiredIf($request->doc_type === 'NIT')],
             'doc_type'      => ['nullable', 'in:NIT,CC'],
-            'doc_number'    => ['nullable', 'string', 'max:30'],
+            'doc_number'    => ['nullable', 'string', 'max:30',
+                Rule::unique('customers', 'doc_number')
+                    ->where('doc_type', $request->doc_type)
+                    ->whereNull('deleted_at')
+                    ->ignore($customer->id),
+            ],
             'phone'         => ['nullable', 'string', 'max:30'],
             'address'       => ['nullable', 'string'],
             'email'         => ['nullable', 'email', 'max:150'],
