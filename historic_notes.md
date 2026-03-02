@@ -503,7 +503,7 @@ public function customer()
 
 | Commit | Descripción |
 |--------|------------|
-| *(pendiente stamp)* | feat(cartera,fe): live search + date filters matching invoices pattern |
+| `781e3a3` | feat(cartera,fe): live search + date filters matching invoices pattern |
 
 ---
 
