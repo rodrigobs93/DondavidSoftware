@@ -29,6 +29,7 @@
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="text-left px-4 py-3 text-gray-600 font-semibold">Nombre</th>
+                    <th class="text-left px-4 py-3 text-gray-600 font-semibold hidden sm:table-cell">Razón social</th>
                     <th class="text-left px-4 py-3 text-gray-600 font-semibold">Documento</th>
                     <th class="text-left px-4 py-3 text-gray-600 font-semibold">Teléfono</th>
                     <th class="text-center px-4 py-3 text-gray-600 font-semibold">FE</th>
@@ -42,6 +43,9 @@
                         <td class="px-4 py-3 font-medium">
                             <span x-text="c.name"></span>
                             <span x-show="c.is_generic" class="ml-1 text-xs text-gray-400 italic">(GENÉRICO)</span>
+                        </td>
+                        <td class="px-4 py-3 text-gray-500 hidden sm:table-cell max-w-56">
+                            <span class="block truncate" x-text="c.business_name || '—'"></span>
                         </td>
                         <td class="px-4 py-3 text-gray-500" x-text="c.doc_label || '—'"></td>
                         <td class="px-4 py-3 text-gray-500" x-text="c.phone || '—'"></td>
@@ -73,7 +77,7 @@
                     </tr>
                 </template>
                 <tr x-show="!loading && customers.length === 0">
-                    <td colspan="6" class="text-center py-8 text-gray-400 text-sm">
+                    <td colspan="7" class="text-center py-8 text-gray-400 text-sm">
                         No se encontraron clientes.
                     </td>
                 </tr>

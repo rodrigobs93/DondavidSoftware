@@ -21,13 +21,14 @@ class CustomerController extends Controller
             }));
 
         $toRow = fn($c) => [
-            'id'          => $c->id,
-            'name'        => $c->name,
-            'is_generic'  => $c->is_generic,
-            'doc_label'   => $c->doc_label ?: null,
-            'phone'       => $c->phone,
-            'requires_fe' => $c->requires_fe,
-            'active'      => $c->active,
+            'id'            => $c->id,
+            'name'          => $c->name,
+            'business_name' => $c->business_name,
+            'is_generic'    => $c->is_generic,
+            'doc_label'     => $c->doc_label ?: null,
+            'phone'         => $c->phone,
+            'requires_fe'   => $c->requires_fe,
+            'active'        => $c->active,
         ];
 
         if ($request->wantsJson()) {
