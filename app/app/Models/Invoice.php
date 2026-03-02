@@ -57,6 +57,35 @@ class Invoice extends Model
         return $this->hasMany(PrintJob::class);
     }
 
+    /**
+     * Shared filter scope: text search (consecutive + customer name/business_name)
+     * and date range. Used by InvoiceController, CarteraController, FePendingController.
+     */
+    public function scopeApplyFilters($query, string $q, string $startDate, string $endDate): void
+    {
+        if ($q) {
+            $query->where(function ($sub) use ($q) {
+                $sub->where('consecutive', 'ilike', "%{$q}%")
+                    ->orWhereHas('customer', fn($cq) => $cq
+                        ->withTrashed()
+                        ->where(fn($q2) => $q2
+                            ->where('name', 'ilike', "%{$q}%")
+                            ->orWhere('business_name', 'ilike', "%{$q}%")
+                        )
+                    );
+            });
+        }
+
+        if ($startDate && $endDate) {
+            $query->whereDate('invoice_date', '>=', $startDate)
+                  ->whereDate('invoice_date', '<=', $endDate);
+        } elseif ($startDate) {
+            $query->whereDate('invoice_date', $startDate);
+        } elseif ($endDate) {
+            $query->whereDate('invoice_date', $endDate);
+        }
+    }
+
     public function isPaid(): bool    { return $this->status === 'PAID'; }
     public function isPartial(): bool { return $this->status === 'PARTIAL'; }
     public function isPending(): bool { return $this->status === 'PENDING'; }

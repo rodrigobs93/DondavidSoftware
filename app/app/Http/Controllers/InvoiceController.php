@@ -21,30 +21,10 @@ class InvoiceController extends Controller
             ->where('voided', false)
             ->orderBy('created_at', 'desc');
 
-        if ($q) {
-            $query->where(function ($sub) use ($q) {
-                $sub->where('consecutive', 'ilike', "%{$q}%")
-                    ->orWhereHas('customer', fn($cq) => $cq
-                        ->withTrashed()
-                        ->where(fn($q2) => $q2
-                            ->where('name', 'ilike', "%{$q}%")
-                            ->orWhere('business_name', 'ilike', "%{$q}%")
-                        )
-                    );
-            });
-        }
+        $query->applyFilters($q, $startDate, $endDate);
 
         if ($status) {
             $query->where('status', $status);
-        }
-
-        if ($startDate && $endDate) {
-            $query->whereDate('invoice_date', '>=', $startDate)
-                  ->whereDate('invoice_date', '<=', $endDate);
-        } elseif ($startDate) {
-            $query->whereDate('invoice_date', $startDate);
-        } elseif ($endDate) {
-            $query->whereDate('invoice_date', $endDate);
         }
 
         $toRow = fn($inv) => [

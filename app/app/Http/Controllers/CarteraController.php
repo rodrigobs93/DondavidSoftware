@@ -12,21 +12,41 @@ class CarteraController extends Controller
 
     public function index(Request $request)
     {
+        $q         = $request->input('q', '');
+        $startDate = $request->input('start_date', '');
+        $endDate   = $request->input('end_date', '');
+
         $query = Invoice::with('customer')
             ->where('balance', '>', 0)
             ->where('voided', false)
             ->orderBy('invoice_date', 'asc');
 
-        if ($request->filled('customer')) {
-            $query->whereHas('customer', fn($q) =>
-                $q->where('name', 'ilike', "%{$request->customer}%")
-            );
-        }
+        $query->applyFilters($q, $startDate, $endDate);
 
-        $invoices     = $query->paginate(20)->withQueryString();
+        // Total balance is always the global outstanding amount (unaffected by filters)
         $totalBalance = Invoice::where('balance', '>', 0)->where('voided', false)->sum('balance');
 
-        return view('cartera.index', compact('invoices', 'totalBalance'));
+        $toRow = fn($inv) => [
+            'id'            => $inv->id,
+            'consecutive'   => $inv->consecutive,
+            'invoice_date'  => $inv->invoice_date->format('d/m/Y'),
+            'customer_name' => $inv->customer?->name ?? '—',
+            'total'         => (string) $inv->total,
+            'paid_amount'   => (string) $inv->paid_amount,
+            'balance'       => (string) $inv->balance,
+            'status'        => $inv->status,
+        ];
+
+        if ($request->wantsJson()) {
+            return response()->json($query->get()->map($toRow));
+        }
+
+        $invoices    = $query->paginate(20)->withQueryString();
+        $initialData = $invoices->map($toRow);
+
+        return view('cartera.index', compact(
+            'invoices', 'totalBalance', 'initialData', 'q', 'startDate', 'endDate'
+        ));
     }
 
     public function addPayment(Request $request, Invoice $invoice)

@@ -495,6 +495,100 @@ public function customer()
 
 ---
 
+---
+
+## Sesión 2026-03-02 — Live search + filtros de fecha para Cartera y FE
+
+### Commit de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| *(pendiente stamp)* | feat(cartera,fe): live search + date filters matching invoices pattern |
+
+---
+
+### Arquitectura compartida (refactoring)
+
+#### Scope `Invoice::scopeApplyFilters`
+
+Extraída la lógica de filtros de `InvoiceController` a un Local Scope de Eloquent reutilizable:
+
+```php
+// Invoice::scopeApplyFilters($query, $q, $startDate, $endDate)
+// Busca en: consecutive, customer.name, customer.business_name (ilike + withTrashed)
+// Filtra por fecha: solo startDate, solo endDate, o rango inclusivo ambos
+```
+
+Usada ahora por `InvoiceController`, `CarteraController` y `FePendingController`.
+
+#### Blade partial `resources/views/partials/_filter-bar.blade.php`
+
+Componente reutilizable con: input de búsqueda (debounce 400ms), date pickers Desde/Hasta, botón Limpiar (`x-show="hasFilters"`), spinner `Buscando…`.
+
+Contrato Alpine.js: el componente padre debe exponer `q`, `startDate`, `endDate`, `loading`, `hasFilters`, `search()`, `clearFilters()`.
+
+Variable Blade opcional: `$placeholder` para personalizar el placeholder del input.
+
+---
+
+### feat: Cartera — búsqueda live + filtros de fecha
+
+**Archivos modificados:**
+- `app/Http/Controllers/CarteraController.php` — `index()` refactorizado
+- `resources/views/cartera/index.blade.php` — convertido a Alpine.js reactivo
+
+#### Comportamiento
+
+- Búsqueda en tiempo real (debounce 400ms): consecutive + customer.name + customer.business_name
+- Filtros de fecha Desde/Hasta (misma semántica que Invoices)
+- Paginación oculta cuando `hasFilters` activo
+- Botón Limpiar restaura datos iniciales sin fetch extra
+- URL sincronizada con `history.replaceState`
+- **Saldo filtrado:** contador reactivo que suma `balance` de los registros visibles (`filteredBalance()`)
+- **Total saldo global** en el header siempre refleja toda la cartera (calculado en PHP, no afectado por filtros Alpine)
+
+#### Técnico
+
+- Cartera conserva layout de **tarjetas** (no tabla): `x-for` con `x-data="{ showAbono: false }"` anidado para toggle por fila
+- Formulario de abono usa `:action` dinámico + `__csrf` desde meta tag para token CSRF
+- No hay chips de estado (toda la base dataset ya es PARTIAL/PENDING por `balance > 0`)
+- `toRow` expone: `id, consecutive, invoice_date, customer_name, total, paid_amount, balance, status`
+
+---
+
+### feat: FE — búsqueda live + filtros de fecha + chips de estado FE
+
+**Archivos modificados:**
+- `app/Http/Controllers/FePendingController.php` — refactorizado, acepta `Request`
+- `resources/views/fe-pending/index.blade.php` — convertido a Alpine.js reactivo
+
+#### Comportamiento
+
+- Base dataset cambiada: ahora `requires_fe = true` (antes solo `fe_status = PENDING`)
+  → La vista muestra **todas las FE** (pendientes + emitidas)
+- Búsqueda en tiempo real: mismo patrón que Cartera e Invoices
+- Filtros de fecha: mismo comportamiento
+- **Chips de estado FE:** Todas / Pendientes / Emitidas
+- Paginación condicional, URL sync, Limpiar
+
+#### Técnico
+
+- `toRow` expone: `id, consecutive, invoice_date, customer_name, customer_doc, total, fe_status, fe_reference`
+- Badge por `fe_status`: `ISSUED` → verde, `PENDING` → azul
+- Componente Alpine: `feFilter()` con `feStatus` como filtro adicional
+
+---
+
+### Resumen de artefactos tras esta sesión
+
+| Tipo | Antes | Ahora |
+|------|-------|-------|
+| Vistas | 13 pantallas | 13 pantallas (Cartera + FE reescritas con Alpine.js) |
+| Partials | — | 1 nuevo (`partials/_filter-bar.blade.php`) |
+| Model scopes | — | 1 nuevo (`Invoice::scopeApplyFilters`) |
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`
