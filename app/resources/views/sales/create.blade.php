@@ -48,8 +48,9 @@
                 {{-- FE Toggle --}}
                 <div class="mt-3 pt-3 border-t">
                     <label class="flex items-center gap-2 cursor-pointer">
-                        <input type="checkbox" name="requires_fe" x-model="requiresFe"
+                        <input type="checkbox" x-model="requiresFe"
                             @change="onFeToggle()" class="rounded">
+                        <input type="hidden" name="requires_fe" :value="requiresFe ? 1 : 0">
                         <span class="text-sm font-medium text-gray-700">Requiere Factura Electrónica (FE)</span>
                     </label>
                     <div x-show="feError" class="text-red-500 text-xs mt-1" x-text="feError"></div>
@@ -319,6 +320,7 @@ function saleForm() {
             this.selectedCustomer = c;
             this.customerSearch = c.name;
             this.showCustomerDropdown = false;
+            this.requiresFe = c.requires_fe || false;
             this.onFeToggle();
             // Fetch special prices for this customer
             const res = await fetch(`/customers/${c.id}/prices`);
