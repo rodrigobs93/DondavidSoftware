@@ -589,6 +589,105 @@ Variable Blade opcional: `$placeholder` para personalizar el placeholder del inp
 
 ---
 
+---
+
+## Sesión 2026-03-03 — Fixes clientes y ventas + mejoras búsqueda
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `96948b7` | fix(customers): allow re-creating soft-deleted docs via partial unique index |
+| `06c41a3` | feat(customers): add business_name column to customers list table |
+| `58ac17e` | feat(sales): extend customer search to include business_name |
+| `156785b` | fix(sales): allow PENDING/PARTIAL sales, fix validation.min.numeric error |
+
+---
+
+### fix: No se podía recrear cliente con mismo documento (UniqueConstraintViolationException)
+
+**Archivos:**
+- `database/migrations/2026_02_27_000005_fix_customers_doc_unique_partial.php` — nueva migración
+- `app/Http/Controllers/CustomerController.php` — validación actualizada en `store()` y `update()`
+
+**Causa:** El constraint `uq_customers_doc UNIQUE (doc_type, doc_number)` era global (cubría filas soft-deleted). Al eliminar un cliente y recrearlo con el mismo documento, PostgreSQL lanzaba `SQLSTATE[23505]`.
+
+**Fix DB:** Migración `000005` elimina el constraint completo y lo reemplaza con índice parcial:
+```sql
+CREATE UNIQUE INDEX uq_customers_doc ON customers (doc_type, doc_number) WHERE deleted_at IS NULL;
+```
+
+**Fix App:** `store()` y `update()` usan `Rule::unique(...)->whereNull('deleted_at')` para que Laravel valide la unicidad solo entre clientes activos (evita el error de DB y muestra mensaje amigable).
+
+---
+
+### feat: Columna "Razón social" en lista de clientes
+
+**Archivos:**
+- `app/Http/Controllers/CustomerController.php` — `business_name` añadido al `$toRow`
+- `resources/views/customers/index.blade.php` — nueva columna entre Nombre y Documento
+
+**Comportamiento:** Columna "Razón social" visible en pantallas `sm:` y arriba; oculta en móvil. Muestra `—` si el cliente no tiene razón social. Texto truncado con `max-w-56 truncate`. `colspan` de la fila vacía actualizado de 6 → 7.
+
+---
+
+### feat: Autocomplete de clientes en Nueva Venta busca también por razón social
+
+**Archivos:**
+- `app/Http/Controllers/CustomerController.php` — `search()` extendido
+- `resources/views/sales/create.blade.php` — dropdown muestra razón social
+
+**Cambios `search()`:** Añadido `orWhere('business_name', 'ilike', "%{$q}%")` + `business_name` en el `get([...])` de columnas.
+
+**Dropdown actualizado:** El resultado muestra `· Razón social` en gris itálico junto al nombre cuando el cliente la tiene. Ejemplo: `Rodrigo Barrios · Restaurante Don David  (NIT 123456789)`.
+
+---
+
+### fix: Ventas PENDIENTE/PARCIAL bloqueadas — error "validation.min.numeric"
+
+**Archivos:**
+- `app/Http/Controllers/SaleController.php` — reglas de validación + filtrado de pagos
+- `resources/views/sales/create.blade.php` — botón submit refleja estado de pago
+
+**Causa raíz:** La regla `payments.*.amount => min:0.01` rechazaba el row de pago placeholder que el frontend siempre envía con `amount: 0`. Sin traducciones de Laravel en español, el error se mostraba como clave cruda `validation.min.numeric`. El error también bloqueaba ventas PENDIENTE (sin pago) y PARCIAL (primer row con monto=0).
+
+**Fixes en `SaleController`:**
+1. `payments` cambiado de `required|array|min:1` → `nullable|array`
+2. `payments.*.amount` cambiado de `min:0.01` → `min:0`
+3. Después de validar: filtra rows con `amount == 0` vía `array_filter + bccomp`; array vacío → SaleService recibe `[]` → status PENDING
+4. Array de mensajes en español añadido para todos los campos
+
+**SaleService sin cambios** — ya manejaba los 3 estados correctamente (PAID/PARTIAL/PENDING en líneas 42-46).
+
+**Botón submit actualizado:**
+| Estado | Color | Texto |
+|--------|-------|-------|
+| Sin productos | Gris | "Agrega al menos un producto" |
+| Sobrepago | Gris | "Pago inválido — ajusta los montos" |
+| Error FE | Gris | "Error en FE" |
+| `balance = 0` | **Verde** | "Finalizar Venta PAGADA — $X" |
+| `paidAmount > 0, balance > 0` | **Amarillo** | "Finalizar Venta PARCIAL — abona $X" |
+| `paidAmount = 0` | **Amarillo** | "Finalizar Venta PENDIENTE — $X por cobrar" |
+
+**Checklist QA ventas (verificado en código):**
+
+| Escenario | Resultado |
+|-----------|-----------|
+| Producto KG cantidad decimal (1.250 kg) | ✅ pasa `min:0.001` |
+| Producto UNIT cantidad entera (4 und) | ✅ |
+| Pago completo (1 método) | ✅ → PAID |
+| Split payment suma = total | ✅ → PAID |
+| Pago parcial (amount < total) | ✅ → PARTIAL |
+| Sin pago (amount = 0) | ✅ → PENDING (antes bloqueado) |
+| Domicilio 0 / activo | ✅ suma al total |
+| FE = No | ✅ fe_status = NONE |
+| FE = Sí cliente con NIT | ✅ fe_status = PENDING |
+| FE = Sí cliente genérico | ✅ bloqueado (frontend + backend) |
+| Sobrepago | ✅ bloqueado por `overpay` check |
+| Error muestra texto español | ✅ (antes mostraba clave raw) |
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`
