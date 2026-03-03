@@ -28,11 +28,38 @@ class SaleController extends Controller
             'items.*.unit_price'   => ['required', 'numeric', 'min:0'],
             'delivery_fee'         => ['nullable', 'numeric', 'min:0'],
             'requires_fe'          => ['boolean'],
-            'payments'             => ['required', 'array', 'min:1'],
+            // payments is optional: no payments (or all-zero) → PENDING invoice
+            // partial sum → PARTIAL; sum = total → PAID
+            'payments'             => ['nullable', 'array'],
             'payments.*.method'    => ['required', 'in:CASH,CARD,NEQUI,DAVIPLATA,BREB'],
-            'payments.*.amount'    => ['required', 'numeric', 'min:0.01'],
+            'payments.*.amount'    => ['required', 'numeric', 'min:0'],
             'notes'                => ['nullable', 'string'],
+        ], [
+            'customer_id.required'          => 'Selecciona un cliente.',
+            'customer_id.exists'            => 'El cliente seleccionado no es válido.',
+            'items.required'                => 'Agrega al menos un producto.',
+            'items.min'                     => 'Agrega al menos un producto.',
+            'items.*.product_name.required' => 'Nombre de producto requerido.',
+            'items.*.sale_unit.in'          => 'Unidad de venta no válida.',
+            'items.*.quantity.min'          => 'La cantidad debe ser mayor a 0.',
+            'items.*.unit_price.min'        => 'El precio no puede ser negativo.',
+            'payments.*.method.in'          => 'Método de pago no válido.',
+            'payments.*.amount.numeric'     => 'El monto del pago debe ser un número.',
+            'payments.*.amount.min'         => 'El monto del pago no puede ser negativo.',
+            'delivery_fee.min'              => 'El domicilio no puede ser negativo.',
         ]);
+
+        // Strip zero-amount payment rows. The front-end always sends at least one
+        // placeholder row (amount: 0). Filtering here allows:
+        //   no positive payments → PENDING
+        //   partial sum          → PARTIAL
+        //   sum = total          → PAID
+        $validated['payments'] = array_values(
+            array_filter(
+                $validated['payments'] ?? [],
+                fn($p) => bccomp((string)($p['amount'] ?? 0), '0', 2) > 0
+            )
+        );
 
         // Validate FE constraints
         if (!empty($validated['requires_fe'])) {
