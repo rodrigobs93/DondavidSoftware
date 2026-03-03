@@ -688,6 +688,140 @@ CREATE UNIQUE INDEX uq_customers_doc ON customers (doc_type, doc_number) WHERE d
 
 ---
 
+---
+
+## Sesión 2026-03-03 (parte 2) — FE auto-check + Módulo Validación de Pagos
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `1c0e234` | fix(sales): auto-check FE on customer select + fix validation.boolean |
+| `dce063b` | feat(reports): payment verification workflow |
+| `4935ecd` | feat(reports): exclude cash payments from verification report |
+| `c15fc93` | ui: rename Reportes → Validación de Pagos |
+
+---
+
+### fix: Auto-check FE al seleccionar cliente + error "validation.boolean"
+
+**Archivo:** `resources/views/sales/create.blade.php`
+
+#### Issue A — Auto-check FE
+`selectCustomer(c)` llamaba `onFeToggle()` para validar el estado, pero nunca leía `c.requires_fe`. Si el cliente tenía `requires_fe = true`, el toggle quedaba sin marcar y el usuario debía activarlo manualmente.
+
+**Fix:** Una línea antes de `onFeToggle()`:
+```js
+this.requiresFe = c.requires_fe || false;
+```
+Esto también resetea a `false` cuando se cambia a un cliente sin FE requerida.
+
+#### Issue B — validation.boolean
+El checkbox `<input type="checkbox" name="requires_fe">` enviaba `"on"` al marcarse (comportamiento HTML estándar). La regla `['boolean']` de Laravel acepta `true/false/1/0/"1"/"0"` pero **no** `"on"`.
+
+**Fix:** Se retiró el atributo `name` del checkbox (que solo controla el estado Alpine) y se añadió un `<input type="hidden">` que siempre envía `0` o `1`:
+```html
+<input type="checkbox" x-model="requiresFe" @change="onFeToggle()" class="rounded">
+<input type="hidden" name="requires_fe" :value="requiresFe ? 1 : 0">
+```
+
+**Checklist QA FE (verificado en código):**
+
+| Escenario | Resultado esperado |
+|-----------|--------------------|
+| Seleccionar cliente con `requires_fe = true` | Toggle FE se marca automáticamente |
+| Cambiar a cliente sin `requires_fe` | Toggle FE se desmarca automáticamente |
+| FE off → finalizar venta | `requires_fe=0`, `fe_status=NONE`, sin error |
+| FE on + cliente válido + NIT → finalizar | `requires_fe=1`, `fe_status=PENDING`, aparece en módulo FE |
+| FE on + cliente GENÉRICO | Frontend bloquea (feError visible), backend también rechaza |
+| FE on + cliente sin documento | Frontend bloquea, backend rechaza con mensaje |
+
+---
+
+### feat: Módulo "Validación de Pagos" (`/reports/payments`)
+
+Reemplazo completo del antiguo reporte estático de pagos. El módulo pasa a ser una herramienta de **conciliación** de pagos electrónicos con arquitectura idéntica a Facturas/Cartera (live search + wantsJson).
+
+#### Migración nueva
+
+**`2026_03_03_000006_add_verification_to_payments.php`**
+
+| Columna nueva | Tipo | Descripción |
+|---------------|------|-------------|
+| `verified` | `boolean DEFAULT false` | Flag de conciliación |
+| `verified_at` | `timestampTz nullable` | Cuándo se verificó |
+| `verified_by_user_id` | `FK → users nullable` | Quién verificó |
+| `updated_at` | `timestampTz nullable` | Ahora el modelo rastrea updates |
+
+Índice compuesto añadido: `idx_payments_verified_paid_at (verified, paid_at)` — cubre el orden default `verified ASC, paid_at DESC` y el filtro de no verificados.
+
+**Modelo `Payment` actualizado:**
+- Eliminado `const UPDATED_AT = null`; ahora `const UPDATED_AT = 'updated_at'`
+- Nuevos fillable: `verified`, `verified_at`, `verified_by_user_id`
+- Nuevos casts: `verified => boolean`, `verified_at => datetime`
+- Nueva relación: `verifiedBy()` → belongsTo User
+
+#### Rutas nuevas (admin-only)
+
+```
+PATCH  /payments/{payment}/verify    payments.verify
+POST   /payments/verify-bulk         payments.verify-bulk
+```
+
+#### Controlador `ReportController` — 3 métodos
+
+**`payments(Request $request)` — reescrito completo:**
+- Parámetros: `q`, `start_date`, `end_date`, `method`, `unverified_only`
+- Base query: excluye CASH (`where('method', '!=', 'CASH')`), excluye facturas anuladas, orden default unverified primero
+- Búsqueda: consecutive OR customer.name OR customer.business_name (vía `whereHas` anidado con `withTrashed`)
+- Dual response: `wantsJson()` → JSON plano; HTML → `paginate(50)` + datos iniciales para Alpine
+- `$toRow`: `id, invoice_id, consecutive, customer_name, business_name, method, method_label, amount, paid_at, verified, verified_at`
+
+**`verifyPayment(Payment $payment)` — PATCH individual:**
+- Idempotente (re-verificar actualiza `verified_at`)
+- Devuelve JSON `{ ok: true, verified_at: "dd/mm/YYYY HH:mm" }`
+
+**`verifyBulk(Request $request)` — POST bulk:**
+- Valida `ids[]` array de enteros
+- Actualiza solo filas con `verified = false` dentro de los IDs dados
+- Devuelve JSON `{ ok: true, count: N }`
+
+#### Vista `reports/payments.blade.php` — reescrita completa
+
+Componente Alpine `paymentReport()` con:
+
+| Elemento | Descripción |
+|----------|-------------|
+| `_filter-bar` partial | Búsqueda + fechas Desde/Hasta + Limpiar + spinner |
+| Chips de método | Todos / Tarjeta / Nequi / Daviplata / Bre-B (sin Efectivo) |
+| Toggle "Solo no verificados" | Chip amarillo ON/OFF |
+| Bulk action bar | Aparece cuando hay checkboxes marcados; botón "Verificar seleccionados" |
+| Tabla | Checkbox · # · Fecha pago · Cliente · Razón social (hidden sm) · Método · Monto · Estado · Acción |
+| Badges método | Colores por método (verde=CASH excluido, azul=Tarjeta, rosa=Nequi, rojo=Daviplata, morado=Bre-B) |
+| Badge estado | Amarillo "Pendiente" / Verde "✓ Verificado" |
+| Botón "Verificar" | AJAX PATCH individual; actualiza fila in-place sin recarga |
+| Bulk verify | POST JSON; hace re-fetch tras éxito para traer `verified_at` del servidor |
+| Footer | Count total + "N sin verificar" + suma de montos visibles |
+| Select all | Checkbox en header selecciona todos los no verificados |
+
+**Gestión de estado `selected` (Set):** Alpine no detecta mutaciones de Set nativas; se reasigna `this.selected = new Set(...)` en cada cambio para forzar reactividad.
+
+**Nombre del módulo:** Nav label → **"Validación"**; page title y `<h1>` → **"Validación de Pagos"**. Ruta `/reports/payments` sin cambio.
+
+---
+
+### Casos borde cubiertos
+
+| Caso | Comportamiento |
+|------|----------------|
+| Pago ya verificado incluido en bulk | `WHERE verified = false` — se omite silenciosamente; `count` refleja solo los nuevos |
+| Factura anulada | Excluida del query base (`whereHas voided=false`) |
+| Cliente soft-deleted | `withTrashed()` en eager load — nombre sigue visible |
+| Pagos en efectivo | Excluidos de la vista (no requieren conciliación) |
+| Split payment (varios métodos) | Cada fila Payment es independiente; se verifican por separado |
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`
