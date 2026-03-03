@@ -206,7 +206,6 @@ function paymentReport() {
 
         methodChips: [
             { value: '',          label: 'Todos'      },
-            { value: 'CASH',      label: 'Efectivo'   },
             { value: 'CARD',      label: 'Tarjeta'    },
             { value: 'NEQUI',     label: 'Nequi'      },
             { value: 'DAVIPLATA', label: 'Daviplata'  },

@@ -21,6 +21,7 @@ class ReportController extends Controller
                 ]),
             ])
             ->whereHas('invoice', fn($q) => $q->where('voided', false))
+            ->where('method', '!=', 'CASH')
             ->orderByRaw('verified ASC, paid_at DESC');
 
         if ($q) {
