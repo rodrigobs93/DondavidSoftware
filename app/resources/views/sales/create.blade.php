@@ -31,6 +31,8 @@
                                 class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
                                 :class="c.is_generic ? 'text-gray-500 italic' : ''">
                                 <span x-text="c.name"></span>
+                                <span x-show="c.business_name" class="text-xs text-gray-500 ml-1 italic"
+                                      x-text="'· ' + c.business_name"></span>
                                 <span x-show="c.doc_number" class="text-xs text-gray-400 ml-1"
                                       x-text="'(' + (c.doc_type||'') + ' ' + (c.doc_number||'') + ')'"></span>
                             </button>

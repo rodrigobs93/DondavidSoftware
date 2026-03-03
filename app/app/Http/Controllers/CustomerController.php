@@ -110,11 +110,12 @@ class CustomerController extends Controller
         $customers = Customer::where('active', true)
             ->where(function ($query) use ($q) {
                 $query->where('name', 'ilike', "%{$q}%")
+                    ->orWhere('business_name', 'ilike', "%{$q}%")
                     ->orWhere('doc_number', 'ilike', "%{$q}%");
             })
             ->orderByRaw('is_generic DESC, name ASC')
             ->limit(20)
-            ->get(['id', 'name', 'doc_type', 'doc_number', 'is_generic', 'requires_fe']);
+            ->get(['id', 'name', 'business_name', 'doc_type', 'doc_number', 'is_generic', 'requires_fe']);
 
         return response()->json($customers);
     }
