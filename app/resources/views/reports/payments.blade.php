@@ -1,9 +1,9 @@
 @extends('layouts.app')
-@section('title', 'Verificación de Pagos')
+@section('title', 'Validación de Pagos')
 
 @section('content')
 <div class="flex items-center justify-between mb-4">
-    <h1 class="text-xl font-bold text-gray-800">Verificación de Pagos</h1>
+    <h1 class="text-xl font-bold text-gray-800">Validación de Pagos</h1>
 </div>
 
 <div x-data="paymentReport()" x-cloak>

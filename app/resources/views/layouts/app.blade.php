@@ -35,7 +35,7 @@
                 @if(auth()->user()->isAdmin())
                     <a href="{{ route('products.index') }}" class="hover:text-gray-300">Productos</a>
                     <a href="{{ route('customers.index') }}" class="hover:text-gray-300">Clientes</a>
-                    <a href="{{ route('reports.payments') }}" class="hover:text-gray-300">Reportes</a>
+                    <a href="{{ route('reports.payments') }}" class="hover:text-gray-300">Validación</a>
                     <a href="{{ route('backups.index') }}" class="hover:text-gray-300">Config</a>
                 @endif
                 <span class="text-gray-400">|</span>
