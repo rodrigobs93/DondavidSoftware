@@ -137,15 +137,25 @@
                         </div>
 
                         <div class="w-24">
-                            <input type="number"
+                            {{-- KG: user types grams (whole number), stored as kg --}}
+                            <input x-show="item.sale_unit === 'KG'"
+                                type="text" inputmode="numeric"
+                                x-init="$el.value = formatGrams(item.quantity)"
+                                @focus="$el.value = String(Math.round(item.quantity * 1000) || '')"
+                                @input="onGramsInput(item, $event)"
+                                @blur="$el.value = formatGrams(item.quantity)"
+                                class="w-full border rounded px-2 py-1 text-sm text-center"
+                                :class="item.qtyError ? 'border-red-400' : ''">
+                            {{-- UNIT: unchanged integer input --}}
+                            <input x-show="item.sale_unit !== 'KG'"
+                                type="number"
                                 x-model.number="item.quantity"
                                 @input="computeLineTotal(item)"
-                                :step="item.sale_unit === 'KG' ? '0.001' : '1'"
-                                :min="item.sale_unit === 'KG' ? '0.001' : '1'"
+                                step="1" min="1"
                                 class="w-full border rounded px-2 py-1 text-sm text-center"
                                 :class="item.qtyError ? 'border-red-400' : ''">
                             <div class="text-xs text-center text-gray-400"
-                                 x-text="item.sale_unit === 'KG' ? 'kg' : 'und'"></div>
+                                 x-text="item.sale_unit === 'KG' ? 'g' : 'und'"></div>
                         </div>
 
                         <div class="text-right w-20">
@@ -381,9 +391,22 @@ function saleForm() {
                 item.qtyError = true;
                 item.quantity = Math.floor(qty) || 1;
             } else {
-                item.qtyError = false;
+                item.qtyError = item.sale_unit === 'KG' && qty < 0.001;
             }
             item.line_total = Math.round((qty * item.unit_price) * 100) / 100;
+        },
+
+        // KG input helpers —— user enters grams, we store kg
+        formatGrams(qty) {
+            const g = Math.round((parseFloat(qty) || 0) * 1000);
+            return g > 0 ? g.toLocaleString('es-CO') : '';
+        },
+
+        onGramsInput(item, event) {
+            const raw = event.target.value.replace(/[^0-9]/g, '');
+            event.target.value = raw;                   // strip non-digits in place (no cursor issue: only digits allowed)
+            item.quantity = (parseInt(raw) || 0) / 1000;
+            this.computeLineTotal(item);
         },
 
         computeTotals() {},
