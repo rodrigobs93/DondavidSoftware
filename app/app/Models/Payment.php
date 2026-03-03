@@ -6,20 +6,22 @@ use Illuminate\Database\Eloquent\Model;
 
 class Payment extends Model
 {
-    public $timestamps = false;
-
     protected $fillable = [
         'invoice_id', 'method', 'amount', 'paid_at', 'notes', 'registered_by_user_id',
+        'verified', 'verified_at', 'verified_by_user_id',
     ];
 
     protected $casts = [
-        'amount'     => 'decimal:2',
-        'paid_at'    => 'datetime',
-        'created_at' => 'datetime',
+        'amount'      => 'decimal:2',
+        'paid_at'     => 'datetime',
+        'created_at'  => 'datetime',
+        'updated_at'  => 'datetime',
+        'verified'    => 'boolean',
+        'verified_at' => 'datetime',
     ];
 
     const CREATED_AT = 'created_at';
-    const UPDATED_AT = null;
+    const UPDATED_AT = 'updated_at';
 
     public static array $methods = [
         'CASH'      => 'Efectivo',
@@ -37,6 +39,11 @@ class Payment extends Model
     public function registeredBy()
     {
         return $this->belongsTo(User::class, 'registered_by_user_id');
+    }
+
+    public function verifiedBy()
+    {
+        return $this->belongsTo(User::class, 'verified_by_user_id');
     }
 
     public function getMethodLabelAttribute(): string
