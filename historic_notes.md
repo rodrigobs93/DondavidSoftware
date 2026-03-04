@@ -822,6 +822,114 @@ Componente Alpine `paymentReport()` con:
 
 ---
 
+---
+
+## Sesión 2026-03-03 (parte 3) — Mejoras input KG en Nueva Venta
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `fdda5dc` | feat(sales): KG quantity input in grams with thousand-separator display |
+| `21d76dd` | feat(sales): KG quantity starts empty instead of 1 kg |
+
+---
+
+### feat: Input de cantidad KG — ingreso en gramos con separadores de miles
+
+**Archivo:** `resources/views/sales/create.blade.php`
+
+#### Motivación
+
+El flujo original de Nueva Venta para productos KG pedía al usuario ingresar la cantidad en kg con decimales (p.ej. `1.250`). Esto generaba fricciones:
+- El usuario debe calcular mentalmente kg desde gramos
+- `type="number"` con `step="0.001"` es difícil de usar en pantallas táctiles
+- No había retroalimentación visual de separadores de miles
+
+#### Comportamiento nuevo
+
+| Acción del usuario | Resultado visible | `item.quantity` (kg) |
+|---|---|---|
+| Agrega producto KG | Campo vacío, label `g` | 0 |
+| Escribe `500` | `500` mientras escribe | 0.5 |
+| Pierde foco | `500` (sin separador, < 1000) | 0.5 |
+| Escribe `1250` | `1.250` al perder foco | 1.25 |
+| Escribe `10000` | `10.000` al perder foco | 10.0 |
+| Borra todo | campo vacío | 0 |
+| Escribe `0` | campo `0`, borde rojo | 0 |
+
+#### Implementación técnica
+
+**Dos inputs separados con `x-show` (reemplaza el único `type="number"`):**
+
+```html
+{{-- KG: text input, usuario ingresa gramos --}}
+<input x-show="item.sale_unit === 'KG'"
+    type="text" inputmode="numeric"
+    x-init="$el.value = formatGrams(item.quantity)"
+    @focus="$el.value = String(Math.round(item.quantity * 1000) || '')"
+    @input="onGramsInput(item, $event)"
+    @blur="$el.value = formatGrams(item.quantity)"
+    ...>
+
+{{-- UNIT: input número entero sin cambios --}}
+<input x-show="item.sale_unit !== 'KG'"
+    type="number" x-model.number="item.quantity"
+    @input="computeLineTotal(item)"
+    step="1" min="1" ...>
+```
+
+**Por qué `x-init` + eventos manuales en lugar de `:value` reactivo:**
+Alpine actualizaría el `el.value` reactivamente en cada keystroke (cuando `item.quantity` cambia), reposicionando el cursor al final. Usando `x-init` (solo en mount) + eventos `@focus/@blur/@input` manuales, el DOM solo se actualiza en momentos controlados y el cursor no salta.
+
+**Flujo de eventos KG:**
+1. `@focus` → muestra entero sin puntos (`"1.250"` → `"1000"`)
+2. `@input` → `onGramsInput()`: strip non-digits → `item.quantity = grams/1000` → recompute → error si `raw.length > 0 && qty < 0.001`
+3. `@blur` → `formatGrams()`: `(1.25 * 1000).toLocaleString('es-CO')` = `"1.250"`
+
+**Nuevas funciones Alpine:**
+
+```js
+formatGrams(qty) {
+    const g = Math.round((parseFloat(qty) || 0) * 1000);
+    return g > 0 ? g.toLocaleString('es-CO') : '';  // '' para campo vacío
+},
+onGramsInput(item, event) {
+    const raw = event.target.value.replace(/[^0-9]/g, '');
+    event.target.value = raw;                 // strip en lugar de cursor jump
+    item.quantity = (parseInt(raw) || 0) / 1000;
+    this.computeLineTotal(item);
+    item.qtyError = raw.length > 0 && item.quantity < 0.001;
+},
+```
+
+**Gestión de `qtyError` para KG:**
+- `computeLineTotal` siempre pone `qtyError = false` en el `else` (revirtió la lógica del commit anterior que la ponía `true`)
+- `onGramsInput` la sobreescribe DESPUÉS: error solo si el usuario escribió dígitos pero la cantidad es < 1 g
+- Campo vacío (sin dígitos) → `raw.length === 0` → sin error → sin borde rojo
+
+**Inicialización vacía:**
+```js
+quantity: p.sale_unit === 'KG' ? 0 : 1,
+line_total: p.sale_unit === 'KG' ? 0 : effectivePrice,
+```
+- KG arranca en 0 → `formatGrams(0) = ''` → input vacío
+- `line_total = 0` hasta que el usuario ingrese gramos
+- `total = 0` → `canSubmit = false` → no se puede enviar accidentalmente
+
+**Label cambiado:** `'kg'` → `'g'` bajo el input KG.
+
+**Hidden input sin cambios:** `<input type="hidden" :value="item.quantity">` sigue enviando kg al servidor (decimal, hasta 3 decimales).
+
+#### Invariantes preservadas
+
+- Lógica de totales (`computeLineTotal`, `subtotal`, `total`, `balance`) sin cambios
+- Productos UNIT: sin modificaciones (integer, `type="number"`, `x-model.number`)
+- Servidor recibe `items[idx][quantity]` en kg (e.g. `1.25`)
+- `InvoiceItem.quantity` almacenado en kg en PostgreSQL
+
+---
+
 ### Fase 2 (después de MVP estable en producción)
 
 - ~~Precios especiales por cliente/producto~~ **HECHO** — commit `4ff6e30`
