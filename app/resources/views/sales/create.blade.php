@@ -374,8 +374,8 @@ function saleForm() {
                 sale_unit: p.sale_unit,
                 base_price: basePrice,
                 unit_price: effectivePrice,
-                quantity: p.sale_unit === 'KG' ? 1.000 : 1,
-                line_total: effectivePrice,
+                quantity: p.sale_unit === 'KG' ? 0 : 1,
+                line_total: p.sale_unit === 'KG' ? 0 : effectivePrice,
                 qtyError: false,
             });
             this.computeLineTotal(this.items[this.items.length - 1]);
@@ -391,7 +391,7 @@ function saleForm() {
                 item.qtyError = true;
                 item.quantity = Math.floor(qty) || 1;
             } else {
-                item.qtyError = item.sale_unit === 'KG' && qty < 0.001;
+                item.qtyError = false;  // KG error managed by onGramsInput
             }
             item.line_total = Math.round((qty * item.unit_price) * 100) / 100;
         },
@@ -407,6 +407,9 @@ function saleForm() {
             event.target.value = raw;                   // strip non-digits in place (no cursor issue: only digits allowed)
             item.quantity = (parseInt(raw) || 0) / 1000;
             this.computeLineTotal(item);
+            // Show error only when the user has typed something that is still zero (< 1 g)
+            // Empty field = not yet entered, no red border
+            item.qtyError = raw.length > 0 && item.quantity < 0.001;
         },
 
         computeTotals() {},
