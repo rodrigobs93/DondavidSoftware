@@ -3,6 +3,8 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Services\SaleService;
 use Illuminate\Http\Request;
 
@@ -13,7 +15,40 @@ class SaleController extends Controller
     public function create()
     {
         $generic = Customer::generic();
-        return view('sales.create', compact('generic'));
+
+        $cats = ProductCategory::where('active', true)
+            ->with(['products' => fn($q) => $q->where('active', true)->orderBy('name')])
+            ->orderBy('name')
+            ->get()
+            ->values()
+            ->map(fn($cat, $i) => [
+                'id'         => $cat->id,
+                'name'       => $cat->name,
+                'colorIndex' => $i % 6,
+                'products'   => $cat->products->map(fn($p) => [
+                    'id'         => $p->id,
+                    'name'       => $p->name,
+                    'sale_unit'  => $p->sale_unit,
+                    'base_price' => (string) $p->base_price,
+                ])->values(),
+            ]);
+
+        $uncat = Product::where('active', true)->whereNull('category_id')->orderBy('name')->get();
+        if ($uncat->isNotEmpty()) {
+            $cats->push([
+                'id'         => 0,
+                'name'       => 'Sin categoría',
+                'colorIndex' => $cats->count() % 6,
+                'products'   => $uncat->map(fn($p) => [
+                    'id'         => $p->id,
+                    'name'       => $p->name,
+                    'sale_unit'  => $p->sale_unit,
+                    'base_price' => (string) $p->base_price,
+                ])->values(),
+            ]);
+        }
+
+        return view('sales.create', compact('generic', 'cats'));
     }
 
     public function store(Request $request)
@@ -28,12 +63,11 @@ class SaleController extends Controller
             'items.*.unit_price'   => ['required', 'numeric', 'min:0'],
             'delivery_fee'         => ['nullable', 'numeric', 'min:0'],
             'requires_fe'          => ['boolean'],
-            // payments is optional: no payments (or all-zero) → PENDING invoice
-            // partial sum → PARTIAL; sum = total → PAID
             'payments'             => ['nullable', 'array'],
             'payments.*.method'    => ['required', 'in:CASH,CARD,NEQUI,DAVIPLATA,BREB'],
             'payments.*.amount'    => ['required', 'numeric', 'min:0'],
             'notes'                => ['nullable', 'string'],
+            'invoice_date'         => ['nullable', 'date', 'before_or_equal:today'],
         ], [
             'customer_id.required'          => 'Selecciona un cliente.',
             'customer_id.exists'            => 'El cliente seleccionado no es válido.',
@@ -47,13 +81,16 @@ class SaleController extends Controller
             'payments.*.amount.numeric'     => 'El monto del pago debe ser un número.',
             'payments.*.amount.min'         => 'El monto del pago no puede ser negativo.',
             'delivery_fee.min'              => 'El domicilio no puede ser negativo.',
+            'invoice_date.date'             => 'La fecha de factura no es válida.',
+            'invoice_date.before_or_equal'  => 'La fecha de factura no puede ser futura.',
         ]);
 
-        // Strip zero-amount payment rows. The front-end always sends at least one
-        // placeholder row (amount: 0). Filtering here allows:
-        //   no positive payments → PENDING
-        //   partial sum          → PARTIAL
-        //   sum = total          → PAID
+        // Strip invoice_date for non-admins (field is admin-only in the form)
+        if (!auth()->user()->isAdmin()) {
+            unset($validated['invoice_date']);
+        }
+
+        // Strip zero-amount payment rows
         $validated['payments'] = array_values(
             array_filter(
                 $validated['payments'] ?? [],

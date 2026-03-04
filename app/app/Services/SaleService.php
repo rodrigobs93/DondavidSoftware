@@ -54,7 +54,7 @@ class SaleService
                 'consecutive_int'    => $consecutiveInt,
                 'customer_id'        => $data['customer_id'],
                 'created_by_user_id' => $createdBy->id,
-                'invoice_date'       => now()->setTimezone('America/Bogota')->toDateString(),
+                'invoice_date'       => $data['invoice_date'] ?? now()->setTimezone('America/Bogota')->toDateString(),
                 'subtotal'           => $subtotal,
                 'delivery_fee'       => $deliveryFee,
                 'total'              => $total,
