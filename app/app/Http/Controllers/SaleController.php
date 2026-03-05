@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Customer;
+use App\Models\Invoice;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Services\SaleService;
@@ -68,6 +69,7 @@ class SaleController extends Controller
             'payments.*.amount'    => ['required', 'numeric', 'min:0'],
             'notes'                => ['nullable', 'string'],
             'invoice_date'         => ['nullable', 'date', 'before_or_equal:today'],
+            'submission_key'       => ['nullable', 'string', 'max:64'],
         ], [
             'customer_id.required'          => 'Selecciona un cliente.',
             'customer_id.exists'            => 'El cliente seleccionado no es válido.',
@@ -137,6 +139,16 @@ class SaleController extends Controller
         }
 
         $validated['delivery_fee'] = $deliveryFee;
+
+        // Idempotency: if this submission_key already produced an invoice, return it
+        if (!empty($validated['submission_key'])) {
+            $existing = Invoice::where('submission_key', $validated['submission_key'])->first();
+            if ($existing) {
+                return redirect()->route('invoices.show', $existing)
+                    ->with('success', "Factura #{$existing->consecutive} creada exitosamente.");
+            }
+        }
+
         $invoice = $this->saleService->createSale($validated, auth()->user());
 
         return redirect()->route('invoices.show', $invoice)

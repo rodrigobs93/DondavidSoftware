@@ -11,7 +11,7 @@ class Invoice extends Model
         'invoice_date', 'subtotal', 'delivery_fee', 'total', 'paid_amount',
         'balance', 'status', 'requires_fe', 'fe_status', 'fe_reference',
         'fe_issued_at', 'fe_issued_by_user_id', 'notes', 'voided',
-        'voided_at', 'voided_by_user_id',
+        'voided_at', 'voided_by_user_id', 'submission_key',
     ];
 
     protected $casts = [

@@ -64,6 +64,7 @@ class SaleService
                 'requires_fe'        => $requiresFe,
                 'fe_status'          => $feStatus,
                 'notes'              => $data['notes'] ?? null,
+                'submission_key'     => $data['submission_key'] ?? null,
             ]);
 
             // 4. Insert items (snapshots — immutable)

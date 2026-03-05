@@ -32,6 +32,7 @@
 
     <form method="POST" action="{{ route('sales.store') }}" @submit.prevent="submitForm($event)">
         @csrf
+        <input type="hidden" name="submission_key" :value="submissionKey">
 
         <div class="md:grid md:grid-cols-3 md:gap-6 pb-28 md:pb-0">
 
@@ -428,21 +429,24 @@
 
                 {{-- Finalize button --}}
                 <button type="submit"
-                        :disabled="!canSubmit"
-                        :class="canSubmit
-                            ? (balance > 0 ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white')
-                            : 'bg-gray-300 text-gray-500 cursor-not-allowed'"
+                        :disabled="!canSubmit || submitting"
+                        :class="submitting
+                            ? 'bg-gray-400 text-white cursor-not-allowed'
+                            : (canSubmit
+                                ? (balance > 0 ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white')
+                                : 'bg-gray-300 text-gray-500 cursor-not-allowed')"
                         class="w-full py-3 rounded-lg font-bold text-base transition-colors shadow">
-                    <span x-show="!canSubmit && items.length === 0">Agrega al menos un producto</span>
-                    <span x-show="!canSubmit && items.length > 0 && overpay">Pago inválido — ajusta los montos</span>
-                    <span x-show="!canSubmit && items.length > 0 && !overpay && !!feError">Error en FE</span>
-                    <span x-show="canSubmit && balance === 0">
+                    <span x-show="submitting">Procesando…</span>
+                    <span x-show="!submitting && !canSubmit && items.length === 0">Agrega al menos un producto</span>
+                    <span x-show="!submitting && !canSubmit && items.length > 0 && overpay">Pago inválido — ajusta los montos</span>
+                    <span x-show="!submitting && !canSubmit && items.length > 0 && !overpay && !!feError">Error en FE</span>
+                    <span x-show="!submitting && canSubmit && balance === 0">
                         Finalizar PAGADA — $<span x-text="formatNum(total)"></span>
                     </span>
-                    <span x-show="canSubmit && paidAmount > 0 && balance > 0">
+                    <span x-show="!submitting && canSubmit && paidAmount > 0 && balance > 0">
                         Finalizar PARCIAL — abona $<span x-text="formatNum(paidAmount)"></span>
                     </span>
-                    <span x-show="canSubmit && paidAmount === 0">
+                    <span x-show="!submitting && canSubmit && paidAmount === 0">
                         Finalizar PENDIENTE — $<span x-text="formatNum(total)"></span> por cobrar
                     </span>
                 </button>
@@ -514,6 +518,8 @@ function saleForm() {
         customPrices:         {},
         _itemKey:             1,
         _payKey:              1,
+        submitting:           false,
+        submissionKey:        (typeof crypto !== 'undefined' && crypto.randomUUID) ? crypto.randomUUID() : Math.random().toString(36).slice(2),
 
         // ── New state ───────────────────────────────────────────────────────
         categories:      __initialCategories,
@@ -756,7 +762,8 @@ function saleForm() {
 
         submitForm(e) {
             this.onFeToggle();
-            if (!this.canSubmit) return;
+            if (!this.canSubmit || this.submitting) return;
+            this.submitting = true;
             e.target.submit();
         },
     };
