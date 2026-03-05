@@ -59,10 +59,14 @@ class PrintWorker extends Command
             return;
         }
 
-        $this->info("Processing job #{$job->id} (invoice #{$job->invoice_id}, attempt {$job->attempts})");
+        $source = $job->invoice_id ? "factura #{$job->invoice_id}" : "recibo #{$job->quick_sale_id}";
+        $this->info("Processing job #{$job->id} ({$source}, attempt {$job->attempts})");
 
         try {
-            $bytes = $this->renderer->render($job->payload);
+            $type  = $job->payload['type'] ?? 'invoice';
+            $bytes = $type === 'quick_sale'
+                ? $this->renderer->renderQuickSale($job->payload)
+                : $this->renderer->render($job->payload);
             $this->writeToPort($bytes);
 
             $job->update([

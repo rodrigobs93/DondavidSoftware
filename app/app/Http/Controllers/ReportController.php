@@ -16,11 +16,16 @@ class ReportController extends Controller
         $unverifiedOnly = $request->boolean('unverified_only');
 
         $query = Payment::with([
-                'invoice' => fn($q) => $q->with([
-                    'customer' => fn($cq) => $cq->withTrashed(),
-                ]),
+                'invoice'   => fn($q) => $q->with(['customer' => fn($cq) => $cq->withTrashed()]),
+                'quickSale',
             ])
-            ->whereHas('invoice', fn($q) => $q->where('voided', false))
+            ->where(function ($q) {
+                // Include non-voided invoice payments OR quick-sale payments
+                $q->where(function ($sub) {
+                    $sub->whereNotNull('invoice_id')
+                        ->whereHas('invoice', fn($iq) => $iq->where('voided', false));
+                })->orWhereNotNull('quick_sale_id');
+            })
             ->where('method', '!=', 'CASH')
             ->orderByRaw('verified ASC, paid_at DESC');
 
@@ -33,7 +38,8 @@ class ReportController extends Controller
                             ->where('name', 'ilike', "%{$q}%")
                             ->orWhere('business_name', 'ilike', "%{$q}%")
                         )
-                    );
+                    )
+                    ->orWhereHas('quickSale', fn($sq) => $sq->where('receipt_number', 'ilike', "%{$q}%"));
             });
         }
 
@@ -51,17 +57,18 @@ class ReportController extends Controller
         }
 
         $toRow = fn(Payment $p) => [
-            'id'            => $p->id,
-            'invoice_id'    => $p->invoice_id,
-            'consecutive'   => $p->invoice->consecutive ?? '—',
-            'customer_name' => $p->invoice->customer->name ?? '—',
-            'business_name' => $p->invoice->customer->business_name ?? null,
-            'method'        => $p->method,
-            'method_label'  => $p->method_label,
-            'amount'        => (string) $p->amount,
-            'paid_at'       => $p->paid_at->setTimezone('America/Bogota')->format('d/m/Y H:i'),
-            'verified'      => $p->verified,
-            'verified_at'   => $p->verified_at?->setTimezone('America/Bogota')->format('d/m/Y H:i'),
+            'id'             => $p->id,
+            'invoice_id'     => $p->invoice_id,
+            'quick_sale_id'  => $p->quick_sale_id,
+            'consecutive'    => $p->invoice->consecutive ?? $p->quickSale->receipt_number ?? '—',
+            'customer_name'  => $p->invoice->customer->name ?? 'Venta rápida',
+            'business_name'  => $p->invoice->customer->business_name ?? null,
+            'method'         => $p->method,
+            'method_label'   => $p->method_label,
+            'amount'         => (string) $p->amount,
+            'paid_at'        => $p->paid_at->setTimezone('America/Bogota')->format('d/m/Y H:i'),
+            'verified'       => $p->verified,
+            'verified_at'    => $p->verified_at?->setTimezone('America/Bogota')->format('d/m/Y H:i'),
         ];
 
         if ($request->wantsJson()) {

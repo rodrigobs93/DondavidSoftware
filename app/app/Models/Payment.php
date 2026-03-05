@@ -7,8 +7,8 @@ use Illuminate\Database\Eloquent\Model;
 class Payment extends Model
 {
     protected $fillable = [
-        'invoice_id', 'method', 'amount', 'paid_at', 'notes', 'registered_by_user_id',
-        'verified', 'verified_at', 'verified_by_user_id',
+        'invoice_id', 'quick_sale_id', 'method', 'amount', 'paid_at', 'notes',
+        'registered_by_user_id', 'verified', 'verified_at', 'verified_by_user_id',
     ];
 
     protected $casts = [
@@ -34,6 +34,11 @@ class Payment extends Model
     public function invoice()
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function quickSale()
+    {
+        return $this->belongsTo(QuickSale::class);
     }
 
     public function registeredBy()

@@ -102,6 +102,54 @@ class EscPosTicketRenderer
         return $out;
     }
 
+    public function renderQuickSale(array $payload): string
+    {
+        $out  = self::INIT;
+        $shop = $payload['shop'];
+        $r    = $payload['receipt'];
+
+        // === Header (same as invoice) ===
+        $out .= self::ALIGN_CENTER;
+        $out .= self::BOLD_ON . mb_strtoupper($shop['name']) . self::LF . self::BOLD_OFF;
+        $out .= $shop['address'] . self::LF;
+        if ($shop['phone']) $out .= 'Tel: ' . $shop['phone'] . self::LF;
+        if ($shop['nit'])   $out .= 'NIT: ' . $shop['nit']   . self::LF;
+        $out .= $this->divider('=');
+
+        // === Receipt type + number ===
+        $out .= self::BOLD_ON . 'VENTA RÁPIDA' . self::LF . self::BOLD_OFF;
+        $out .= self::ALIGN_LEFT;
+        $out .= "Recibo N: {$r['number']}" . self::LF;
+        $out .= "Fecha: {$r['date']}  {$r['time']}" . self::LF;
+        $out .= $this->divider('=');
+
+        // === Total ===
+        $out .= self::BOLD_ON . $this->twoCol('TOTAL:', $this->cop($r['total'])) . self::BOLD_OFF;
+        $out .= $this->divider('=');
+
+        // === Payment ===
+        $out .= 'PAGO:' . self::LF;
+        $out .= $this->twoCol($r['method_label'], $this->cop($r['total']));
+
+        if ($r['method'] === 'CASH') {
+            $out .= $this->divider('-');
+            $out .= $this->twoCol('Recibido:', $this->cop($r['cash_received']));
+            $out .= self::BOLD_ON . $this->twoCol('CAMBIO:', $this->cop($r['change_amount'])) . self::BOLD_OFF;
+        }
+
+        $out .= $this->divider('=');
+
+        if (!empty($shop['footer'])) {
+            $out .= self::ALIGN_CENTER . $shop['footer'] . self::LF;
+            $out .= $this->divider('=');
+        }
+
+        $out .= self::LF . self::LF . self::LF;
+        $out .= self::CUT;
+
+        return $out;
+    }
+
     private function divider(string $char = '-'): string
     {
         return str_repeat($char, self::WIDTH) . self::LF;

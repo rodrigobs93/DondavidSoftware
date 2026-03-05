@@ -92,7 +92,7 @@
 
                         {{-- Consecutive link --}}
                         <td class="px-4 py-3">
-                            <a :href="'/invoices/' + pay.invoice_id"
+                            <a :href="pay.quick_sale_id ? '/quick-sales/' + pay.quick_sale_id : '/invoices/' + pay.invoice_id"
                                class="font-mono font-semibold text-blue-600 hover:underline"
                                x-text="pay.consecutive"></a>
                         </td>

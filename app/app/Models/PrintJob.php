@@ -7,7 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 class PrintJob extends Model
 {
     protected $fillable = [
-        'invoice_id', 'status', 'payload', 'attempts', 'error_message',
+        'invoice_id', 'quick_sale_id', 'status', 'payload', 'attempts', 'error_message',
         'queued_at', 'printed_at',
     ];
 
@@ -20,6 +20,11 @@ class PrintJob extends Model
     public function invoice()
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function quickSale()
+    {
+        return $this->belongsTo(QuickSale::class);
     }
 
     public function scopeQueued($query)

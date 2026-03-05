@@ -23,12 +23,14 @@
 <body class="bg-gray-100 min-h-screen">
 
 {{-- Top nav --}}
-<nav class="bg-gray-900 text-white shadow">
+<nav class="bg-gray-900 text-white shadow" x-data>
     <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
         <a href="{{ route('dashboard') }}" class="font-bold text-lg tracking-wide">🥩 Don David POS</a>
         <div class="flex items-center gap-4 text-sm">
             @auth
                 <a href="{{ route('sales.create') }}" class="text-green-400 hover:text-green-300 font-semibold">+ Venta</a>
+                <a href="#" @click.prevent="$dispatch('open-quick-sale')"
+                   class="text-yellow-400 hover:text-yellow-300 font-semibold">⚡ Rápida</a>
                 <a href="{{ route('invoices.index') }}" class="hover:text-gray-300">Facturas</a>
                 <a href="{{ route('cartera.index') }}" class="hover:text-gray-300">Cartera</a>
                 <a href="{{ route('fe-pending.index') }}" class="hover:text-gray-300">FE</a>
@@ -73,5 +75,7 @@
 
     @yield('content')
 </main>
+
+@include('partials._quick-sale-modal')
 </body>
 </html>

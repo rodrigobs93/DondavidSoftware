@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FePendingController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\QuickSaleController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
 use Illuminate\Support\Facades\Route;
@@ -29,6 +30,11 @@ Route::middleware(['auth', 'lan'])->group(function () {
     // Sales
     Route::get('/sales/new', [SaleController::class, 'create'])->name('sales.create');
     Route::post('/sales', [SaleController::class, 'store'])->name('sales.store');
+
+    // Quick Sales
+    Route::post('/quick-sales',                        [QuickSaleController::class, 'store'])->name('quick-sales.store');
+    Route::get('/quick-sales/{quickSale}',             [QuickSaleController::class, 'show'])->name('quick-sales.show');
+    Route::post('/quick-sales/{quickSale}/print',      [QuickSaleController::class, 'print'])->name('quick-sales.print');
 
     // Invoices
     Route::get('/invoices', [InvoiceController::class, 'index'])->name('invoices.index');
