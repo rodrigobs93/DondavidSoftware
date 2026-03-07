@@ -126,6 +126,11 @@
                 {{-- Print question --}}
                 <p class="text-sm text-gray-600 mb-3">¿Desea imprimir el recibo?</p>
 
+                {{-- Print error --}}
+                <div x-show="printErrorMsg" x-cloak
+                     class="mb-3 p-2 bg-red-50 border border-red-200 text-red-700 text-xs rounded text-left"
+                     x-text="printErrorMsg"></div>
+
                 <div class="flex gap-3 justify-center">
                     {{-- Default: NO print — auto-focused --}}
                     <button type="button"
@@ -164,7 +169,8 @@ function quickSaleModal() {
         cashReceived: '',
         notes:        '',
         submissionKey: '',
-        errorMsg:     '',
+        errorMsg:      '',
+        printErrorMsg: '',
         // result
         result: null,
 
@@ -209,8 +215,9 @@ function quickSaleModal() {
             this.method       = '';
             this.cashReceived = '';
             this.notes        = '';
-            this.errorMsg     = '';
-            this.result       = null;
+            this.errorMsg      = '';
+            this.printErrorMsg = '';
+            this.result        = null;
             this.submissionKey = (typeof crypto !== 'undefined' && crypto.randomUUID)
                 ? crypto.randomUUID()
                 : Math.random().toString(36).slice(2);
@@ -262,14 +269,24 @@ function quickSaleModal() {
 
         async printReceipt() {
             if (!this.result || this.printLoading) return;
-            this.printLoading = true;
+            this.printLoading  = true;
+            this.printErrorMsg = '';
             try {
-                await fetch(`/quick-sales/${this.result.id}/print`, {
+                const res  = await fetch(`/quick-sales/${this.result.id}/print`, {
                     method:  'POST',
                     headers: { 'X-CSRF-TOKEN': __qsCsrf, 'Accept': 'application/json' },
                 });
-            } catch (_) { /* fire-and-forget */ }
-            this.close();
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok) {
+                    this.printErrorMsg = data.error ?? 'Error al enviar a imprimir.';
+                    this.printLoading  = false;
+                    return;
+                }
+                this.close();
+            } catch (_) {
+                this.printErrorMsg = 'Error de red al enviar a imprimir.';
+                this.printLoading  = false;
+            }
         },
 
         fmt(val) {

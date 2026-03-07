@@ -36,6 +36,19 @@
     </div>
 </div>
 
+{{-- Print Worker down warning --}}
+@if($workerDown)
+<div class="mb-4 p-3 bg-orange-50 border border-orange-300 text-orange-800 rounded-lg flex items-start gap-3">
+    <span class="text-xl leading-none mt-0.5">⚠️</span>
+    <div class="text-sm">
+        <strong>Servicio de impresión detenido.</strong>
+        Hay trabajos de impresión en cola que no se están procesando.
+        Ejecute en la terminal del servidor:
+        <code class="block mt-1 bg-orange-100 px-2 py-1 rounded font-mono text-xs">php artisan app:print-worker</code>
+    </div>
+</div>
+@endif
+
 {{-- Quick actions --}}
 <div class="grid md:grid-cols-3 gap-4 mb-6">
     <a href="{{ route('sales.create') }}"

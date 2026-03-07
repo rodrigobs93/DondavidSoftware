@@ -24,10 +24,15 @@ class DashboardController extends Controller
             ->where('created_at', '>=', now()->subHours(24))
             ->count();
 
+        // Detect if PrintWorker is down: any QUEUED job older than 30 seconds
+        $workerDown = PrintJob::where('status', 'QUEUED')
+            ->where('queued_at', '<', now()->subSeconds(30))
+            ->exists();
+
         $lanIp = Setting::get('lan_ip', config('app.lan_ip', '192.168.1.100'));
 
         return view('dashboard', compact(
-            'todayStats', 'carteraCount', 'fePendingCount', 'printErrors', 'lanIp'
+            'todayStats', 'carteraCount', 'fePendingCount', 'printErrors', 'workerDown', 'lanIp'
         ));
     }
 }
