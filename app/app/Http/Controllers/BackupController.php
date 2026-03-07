@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Setting;
+use App\Services\ThermalPrinterService;
 use Illuminate\Http\Request;
 use Symfony\Component\Process\Process;
 
@@ -52,7 +53,7 @@ class BackupController extends Controller
     {
         $fields = [
             'shop_name', 'shop_address', 'shop_phone', 'shop_nit',
-            'invoice_footer', 'lan_ip', 'backup_path', 'thermal_printer_port',
+            'invoice_footer', 'lan_ip', 'backup_path', 'thermal_printer_name',
         ];
 
         foreach ($fields as $field) {
@@ -62,5 +63,15 @@ class BackupController extends Controller
         }
 
         return back()->with('success', 'Configuración guardada correctamente.');
+    }
+
+    public function testPrint()
+    {
+        try {
+            (new ThermalPrinterService())->testPrint();
+            return response()->json(['ok' => true, 'message' => 'Ticket de prueba enviado.']);
+        } catch (\Throwable $e) {
+            return response()->json(['ok' => false, 'error' => $e->getMessage()], 500);
+        }
     }
 }

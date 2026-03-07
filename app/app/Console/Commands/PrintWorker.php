@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\PrintJob;
 use App\Services\EscPosTicketRenderer;
+use App\Services\ThermalPrinterService;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 
@@ -13,14 +14,14 @@ class PrintWorker extends Command
     protected $description = 'Daemon that processes queued print jobs and sends them to the thermal printer.';
 
     private EscPosTicketRenderer $renderer;
-    private string $printerPort;
+    private ThermalPrinterService $printer;
 
     public function handle(): void
     {
-        $this->renderer    = new EscPosTicketRenderer();
-        $this->printerPort = env('THERMAL_PRINTER_PORT', 'COM3');
+        $this->renderer = new EscPosTicketRenderer();
+        $this->printer  = new ThermalPrinterService();
 
-        $this->info("Print worker started. Printer: {$this->printerPort}");
+        $this->info("Print worker started. Printer: {$this->printer->printerName()}");
         $this->info("Polling every 2 seconds. Press Ctrl+C to stop.");
 
         // On startup: reset any stuck PRINTING jobs back to QUEUED
@@ -67,7 +68,7 @@ class PrintWorker extends Command
             $bytes = $type === 'quick_sale'
                 ? $this->renderer->renderQuickSale($job->payload)
                 : $this->renderer->render($job->payload);
-            $this->writeToPort($bytes);
+            $this->printer->send($bytes);
 
             $job->update([
                 'status'     => 'PRINTED',
@@ -92,28 +93,4 @@ class PrintWorker extends Command
         }
     }
 
-    private function writeToPort(string $bytes): void
-    {
-        $port = $this->printerPort;
-
-        // On Windows, open the port as a file for raw ESC/POS output
-        $handle = @fopen($port, 'wb');
-
-        if ($handle === false) {
-            // Fallback: try Windows COPY /B approach via shell
-            $tmpFile = sys_get_temp_dir() . DIRECTORY_SEPARATOR . 'print_' . uniqid() . '.bin';
-            file_put_contents($tmpFile, $bytes);
-            $cmd = "COPY /B \"$tmpFile\" $port";
-            exec($cmd, $output, $retval);
-            @unlink($tmpFile);
-
-            if ($retval !== 0) {
-                throw new \RuntimeException("No se pudo escribir en el puerto {$port}. ¿Está la impresora conectada?");
-            }
-            return;
-        }
-
-        fwrite($handle, $bytes);
-        fclose($handle);
-    }
 }

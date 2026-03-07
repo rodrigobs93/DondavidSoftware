@@ -97,5 +97,6 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::get('/backups', [BackupController::class, 'index'])->name('backups.index');
         Route::post('/backups/export', [BackupController::class, 'export'])->name('backups.export');
         Route::post('/backups/settings', [BackupController::class, 'saveSettings'])->name('backups.settings');
+        Route::post('/backups/test-print', [BackupController::class, 'testPrint'])->name('backups.test-print');
     });
 });

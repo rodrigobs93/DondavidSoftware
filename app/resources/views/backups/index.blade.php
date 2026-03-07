@@ -55,9 +55,14 @@
                         <p class="text-xs text-gray-400 mt-1">Se muestra en el Dashboard para acceso desde celular.</p>
                     </div>
                     <div>
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Puerto impresora térmica</label>
-                        <input type="text" name="thermal_printer_port" value="{{ $settings['thermal_printer_port'] ?? 'COM3' }}"
-                            class="w-full border rounded px-3 py-2 text-sm font-mono" placeholder="COM3">
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Nombre de impresora Windows</label>
+                        <input type="text" name="thermal_printer_name"
+                               value="{{ $settings['thermal_printer_name'] ?? 'XP-80C' }}"
+                               class="w-full border rounded px-3 py-2 text-sm font-mono"
+                               placeholder="XP-80C">
+                        <p class="text-xs text-gray-400 mt-1">
+                            Nombre exacto como aparece en "Dispositivos e impresoras" de Windows.
+                        </p>
                     </div>
                     <div>
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ruta backup (OneDrive)</label>
@@ -69,6 +74,32 @@
                 </div>
                 <button class="mt-4 pos-btn-secondary w-full">Guardar sistema</button>
             </form>
+
+            {{-- Test Print --}}
+            <div x-data="{ loading: false, msg: '', ok: null }" class="mt-3 px-1">
+                <button type="button"
+                        @click="loading=true; msg='';
+                            fetch('{{ route('backups.test-print') }}', {
+                                method: 'POST',
+                                headers: {
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                    'Accept': 'application/json'
+                                }
+                            })
+                            .then(r => r.json())
+                            .then(d => { ok = d.ok; msg = d.ok ? d.message : d.error; })
+                            .catch(() => { ok = false; msg = 'Error de red.'; })
+                            .finally(() => loading = false)"
+                        :disabled="loading"
+                        class="pos-btn-secondary w-full disabled:opacity-50">
+                    <span x-show="!loading">🖨 Imprimir ticket de prueba</span>
+                    <span x-show="loading" x-cloak>Enviando…</span>
+                </button>
+                <p x-show="msg" x-cloak
+                   class="mt-2 text-xs text-center"
+                   :class="ok ? 'text-green-600' : 'text-red-600'"
+                   x-text="msg"></p>
+            </div>
         </div>
 
         {{-- Backup export --}}
