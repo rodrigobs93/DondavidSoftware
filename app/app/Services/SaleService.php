@@ -9,6 +9,8 @@ use App\Models\Payment;
 use App\Models\PrintJob;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\EscPosTicketRenderer;
+use App\Services\ThermalPrinterService;
 use Illuminate\Support\Facades\DB;
 
 class SaleService
@@ -193,11 +195,23 @@ class SaleService
             ])->toArray(),
         ];
 
-        return PrintJob::create([
+        $job = PrintJob::create([
             'invoice_id' => $invoice->id,
-            'status'     => 'QUEUED',
+            'status'     => 'PRINTING',
             'payload'    => $payload,
+            'attempts'   => 1,
             'queued_at'  => now(),
         ]);
+
+        // Print synchronously — no worker daemon needed
+        try {
+            $bytes = (new EscPosTicketRenderer())->render($payload);
+            (new ThermalPrinterService())->send($bytes);
+            $job->update(['status' => 'PRINTED', 'printed_at' => now()]);
+        } catch (\Throwable $e) {
+            $job->update(['status' => 'FAILED', 'error_message' => $e->getMessage()]);
+        }
+
+        return $job;
     }
 }

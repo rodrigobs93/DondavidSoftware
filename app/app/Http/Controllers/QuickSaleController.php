@@ -51,7 +51,10 @@ class QuickSaleController extends Controller
 
     public function print(QuickSale $quickSale)
     {
-        $this->quickSaleService->createPrintJobForQuickSale($quickSale);
+        $job = $this->quickSaleService->createPrintJobForQuickSale($quickSale);
+        if ($job->status === 'FAILED') {
+            return response()->json(['ok' => false, 'error' => $job->error_message], 500);
+        }
         return response()->json(['ok' => true]);
     }
 

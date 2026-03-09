@@ -64,8 +64,11 @@ class InvoiceController extends Controller
 
     public function reprint(Invoice $invoice)
     {
-        $this->saleService->createPrintJob($invoice);
-        return back()->with('success', 'Reimpresión enviada a la cola de impresión.');
+        $job = $this->saleService->createPrintJob($invoice);
+        if ($job->status === 'FAILED') {
+            return back()->with('error', 'Error al imprimir: ' . $job->error_message);
+        }
+        return back()->with('success', 'Ticket impreso correctamente.');
     }
 
     public function feMarkIssued(Request $request, Invoice $invoice)
@@ -79,6 +82,6 @@ class InvoiceController extends Controller
         }
 
         $this->saleService->markFeIssued($invoice, $request->fe_reference, auth()->user());
-        return back()->with('success', 'Factura electrónica marcada como emitida y ticket reenviado a impresión.');
+        return back()->with('success', 'Factura electrónica marcada como emitida. Ticket impreso.');
     }
 }

@@ -7,6 +7,8 @@ use App\Models\PrintJob;
 use App\Models\QuickSale;
 use App\Models\Setting;
 use App\Models\User;
+use App\Services\EscPosTicketRenderer;
+use App\Services\ThermalPrinterService;
 use Illuminate\Support\Facades\DB;
 
 class QuickSaleService
@@ -77,11 +79,23 @@ class QuickSaleService
             ],
         ];
 
-        return PrintJob::create([
+        $job = PrintJob::create([
             'quick_sale_id' => $qs->id,
-            'status'        => 'QUEUED',
+            'status'        => 'PRINTING',
             'payload'       => $payload,
+            'attempts'      => 1,
             'queued_at'     => now(),
         ]);
+
+        // Print synchronously — no worker daemon needed
+        try {
+            $bytes = (new EscPosTicketRenderer())->renderQuickSale($payload);
+            (new ThermalPrinterService())->send($bytes);
+            $job->update(['status' => 'PRINTED', 'printed_at' => now()]);
+        } catch (\Throwable $e) {
+            $job->update(['status' => 'FAILED', 'error_message' => $e->getMessage()]);
+        }
+
+        return $job;
     }
 }
