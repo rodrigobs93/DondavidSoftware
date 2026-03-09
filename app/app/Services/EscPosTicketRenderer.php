@@ -8,7 +8,6 @@ class EscPosTicketRenderer
 
     // ESC/POS command constants
     private const INIT            = "\x1B\x40";
-    private const CODEPAGE_LATIN  = "\x1B\x74\x02"; // ESC t 2 = PC850 Multilingual (Spanish)
     private const CUT             = "\x1D\x56\x41\x00";
     private const BOLD_ON         = "\x1B\x45\x01";
     private const BOLD_OFF        = "\x1B\x45\x00";
@@ -18,8 +17,7 @@ class EscPosTicketRenderer
 
     public function render(array $payload): string
     {
-        // INIT resets printer (including code page); set PC850 immediately after.
-        $out  = self::INIT . self::CODEPAGE_LATIN;
+        $out  = self::INIT;
         $shop     = $payload['shop'];
         $invoice  = $payload['invoice'];
         $customer = $payload['customer'];
@@ -108,8 +106,7 @@ class EscPosTicketRenderer
 
     public function renderQuickSale(array $payload): string
     {
-        // INIT resets printer (including code page); set PC850 immediately after.
-        $out  = self::INIT . self::CODEPAGE_LATIN;
+        $out  = self::INIT;
         $shop = $payload['shop'];
         $r    = $payload['receipt'];
 
@@ -191,14 +188,34 @@ class EscPosTicketRenderer
     }
 
     /**
-     * Convert UTF-8 text → PC850 (IBM Multilingual Latin I) bytes.
-     * PC850 is selected via ESC t 2 and covers all Spanish accented characters,
-     * ñ/Ñ, ¡, ¿, and standard currency symbols.
-     * //TRANSLIT replaces characters with closest ASCII if not in CP850.
-     * //IGNORE drops any remaining unmappable characters.
+     * Sanitize UTF-8 text to plain ASCII for thermal printer output.
+     * Replaces accented/special Spanish characters with ASCII equivalents,
+     * removes ¡ and ¿, and strips any remaining non-ASCII bytes.
      */
     private function enc(string $text): string
     {
-        return iconv('UTF-8', 'CP850//TRANSLIT//IGNORE', $text) ?: $text;
+        return self::sanitizeForPrinter($text);
+    }
+
+    private static function sanitizeForPrinter(string $text): string
+    {
+        $map = [
+            'á'=>'a','à'=>'a','ä'=>'a','â'=>'a','ã'=>'a',
+            'é'=>'e','è'=>'e','ë'=>'e','ê'=>'e',
+            'í'=>'i','ì'=>'i','ï'=>'i','î'=>'i',
+            'ó'=>'o','ò'=>'o','ö'=>'o','ô'=>'o','õ'=>'o',
+            'ú'=>'u','ù'=>'u','ü'=>'u','û'=>'u',
+            'ñ'=>'n','ç'=>'c',
+            'Á'=>'A','À'=>'A','Ä'=>'A','Â'=>'A','Ã'=>'A',
+            'É'=>'E','È'=>'E','Ë'=>'E','Ê'=>'E',
+            'Í'=>'I','Ì'=>'I','Ï'=>'I','Î'=>'I',
+            'Ó'=>'O','Ò'=>'O','Ö'=>'O','Ô'=>'O','Õ'=>'O',
+            'Ú'=>'U','Ù'=>'U','Ü'=>'U','Û'=>'U',
+            'Ñ'=>'N','Ç'=>'C',
+            '¡'=>'','¿'=>'',
+        ];
+        $text = strtr($text, $map);
+        // Strip any remaining non-ASCII characters
+        return preg_replace('/[^\x00-\x7F]/', '', $text);
     }
 }

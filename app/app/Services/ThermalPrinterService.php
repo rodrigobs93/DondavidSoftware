@@ -21,7 +21,6 @@ class ThermalPrinterService
         $now = now()->setTimezone('America/Bogota');
 
         $bytes = chr(0x1B) . chr(0x40)          // ESC @ init
-               . chr(0x1B) . chr(0x74) . chr(2) // ESC t 2 = PC850 (Spanish code page)
                . chr(0x1B) . chr(0x61) . chr(1) // CENTER
                . chr(0x1B) . chr(0x45) . chr(1) // BOLD ON
                . "TEST DE IMPRESION\n"
@@ -31,11 +30,11 @@ class ThermalPrinterService
                . "Impresora: " . $this->printerName() . "\n"
                . "Fecha:     " . $now->format('d/m/Y H:i:s') . "\n"
                . str_repeat('-', 42) . "\n"
-               // Charset diagnostic — must print with correct accents, no Chinese chars
-               . $this->cp850("Bogotá, CARNICERÍA\n")
-               . $this->cp850("ñ Ñ, ¡Gracias!\n")
-               . $this->cp850("á é í ó ú - Á É Í Ó Ú\n")
-               . $this->cp850("Precio: \$38.000\n")
+               // ASCII sanitization check — expected output shown in comments
+               . $this->sanitize("Bogotá, CARNICERÍA\n")  // → Bogota, CARNICERIA
+               . $this->sanitize("ñ Ñ, ¡Gracias!\n")      // → n N, Gracias!
+               . $this->sanitize("á é í ó ú - Á É Í Ó Ú\n") // → a e i o u - A E I O U
+               . "Precio: \$38.000\n"
                . str_repeat('-', 42) . "\n"
                . "Don David POS - OK\n\n\n"
                . chr(0x1D) . chr(0x56) . chr(0x41) . chr(3); // FULL CUT
@@ -43,9 +42,25 @@ class ThermalPrinterService
         $this->send($bytes);
     }
 
-    private function cp850(string $text): string
+    private function sanitize(string $text): string
     {
-        return iconv('UTF-8', 'CP850//TRANSLIT//IGNORE', $text) ?: $text;
+        $map = [
+            'á'=>'a','à'=>'a','ä'=>'a','â'=>'a','ã'=>'a',
+            'é'=>'e','è'=>'e','ë'=>'e','ê'=>'e',
+            'í'=>'i','ì'=>'i','ï'=>'i','î'=>'i',
+            'ó'=>'o','ò'=>'o','ö'=>'o','ô'=>'o','õ'=>'o',
+            'ú'=>'u','ù'=>'u','ü'=>'u','û'=>'u',
+            'ñ'=>'n','ç'=>'c',
+            'Á'=>'A','À'=>'A','Ä'=>'A','Â'=>'A','Ã'=>'A',
+            'É'=>'E','È'=>'E','Ë'=>'E','Ê'=>'E',
+            'Í'=>'I','Ì'=>'I','Ï'=>'I','Î'=>'I',
+            'Ó'=>'O','Ò'=>'O','Ö'=>'O','Ô'=>'O','Õ'=>'O',
+            'Ú'=>'U','Ù'=>'U','Ü'=>'U','Û'=>'U',
+            'Ñ'=>'N','Ç'=>'C',
+            '¡'=>'','¿'=>'',
+        ];
+        $text = strtr($text, $map);
+        return preg_replace('/[^\x00-\x7F]/', '', $text);
     }
 
     private function sendToSpooler(string $bytes, string $printerName): void
