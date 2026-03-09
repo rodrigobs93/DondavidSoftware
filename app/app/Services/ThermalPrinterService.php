@@ -21,6 +21,7 @@ class ThermalPrinterService
         $now = now()->setTimezone('America/Bogota');
 
         $bytes = chr(0x1B) . chr(0x40)          // ESC @ init
+               . chr(0x1B) . chr(0x74) . chr(2) // ESC t 2 = PC850 (Spanish code page)
                . chr(0x1B) . chr(0x61) . chr(1) // CENTER
                . chr(0x1B) . chr(0x45) . chr(1) // BOLD ON
                . "TEST DE IMPRESION\n"

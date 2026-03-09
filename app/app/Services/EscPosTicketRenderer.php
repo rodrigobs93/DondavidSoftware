@@ -7,17 +7,19 @@ class EscPosTicketRenderer
     private const WIDTH = 42;
 
     // ESC/POS command constants
-    private const INIT         = "\x1B\x40";
-    private const CUT          = "\x1D\x56\x41\x00";
-    private const BOLD_ON      = "\x1B\x45\x01";
-    private const BOLD_OFF     = "\x1B\x45\x00";
-    private const ALIGN_LEFT   = "\x1B\x61\x00";
-    private const ALIGN_CENTER = "\x1B\x61\x01";
-    private const LF           = "\n";
+    private const INIT            = "\x1B\x40";
+    private const CODEPAGE_LATIN  = "\x1B\x74\x02"; // ESC t 2 = PC850 Multilingual (Spanish)
+    private const CUT             = "\x1D\x56\x41\x00";
+    private const BOLD_ON         = "\x1B\x45\x01";
+    private const BOLD_OFF        = "\x1B\x45\x00";
+    private const ALIGN_LEFT      = "\x1B\x61\x00";
+    private const ALIGN_CENTER    = "\x1B\x61\x01";
+    private const LF              = "\n";
 
     public function render(array $payload): string
     {
-        $out  = self::INIT;
+        // INIT resets printer (including code page); set PC850 immediately after.
+        $out  = self::INIT . self::CODEPAGE_LATIN;
         $shop     = $payload['shop'];
         $invoice  = $payload['invoice'];
         $customer = $payload['customer'];
@@ -26,10 +28,10 @@ class EscPosTicketRenderer
 
         // === Header ===
         $out .= self::ALIGN_CENTER;
-        $out .= self::BOLD_ON . mb_strtoupper($shop['name']) . self::LF . self::BOLD_OFF;
-        $out .= $shop['address'] . self::LF;
-        if ($shop['phone']) $out .= 'Tel: ' . $shop['phone'] . self::LF;
-        if ($shop['nit'])   $out .= 'NIT: ' . $shop['nit'] . self::LF;
+        $out .= self::BOLD_ON . $this->enc(mb_strtoupper($shop['name'])) . self::LF . self::BOLD_OFF;
+        $out .= $this->enc($shop['address']) . self::LF;
+        if ($shop['phone']) $out .= 'Tel: ' . $this->enc($shop['phone']) . self::LF;
+        if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
         $out .= $this->divider('=');
 
         // === Invoice number & date ===
@@ -40,12 +42,12 @@ class EscPosTicketRenderer
         // === FE customer info (only when required) ===
         if ($invoice['requires_fe'] && !$customer['is_generic']) {
             $out .= $this->divider('-');
-            $out .= "Cliente: {$customer['name']}" . self::LF;
+            $out .= 'Cliente: ' . $this->enc($customer['name']) . self::LF;
             if (!empty($customer['business_name'])) {
-                $out .= "Empresa: {$customer['business_name']}" . self::LF;
+                $out .= 'Empresa: ' . $this->enc($customer['business_name']) . self::LF;
             }
             if ($customer['doc_label']) {
-                $out .= "Doc: {$customer['doc_label']}" . self::LF;
+                $out .= 'Doc: ' . $this->enc($customer['doc_label']) . self::LF;
             }
         }
         $out .= $this->divider('-');
@@ -56,6 +58,7 @@ class EscPosTicketRenderer
 
         // === Items ===
         foreach ($items as $item) {
+            // Truncate in UTF-8 first (mb_* functions), then encode for printing
             $name = $item['product_name_snapshot'];
             if (mb_strlen($name) > 24) {
                 $name = mb_substr($name, 0, 21) . '...';
@@ -63,11 +66,12 @@ class EscPosTicketRenderer
             $qty   = $item['formatted_quantity'];
             $total = $this->cop($item['line_total']);
 
-            $out .= $this->pad($name, 24) . ' ' . $this->padL($qty, 7) . ' ' . $this->padL($total, 9) . self::LF;
+            // pad() uses mb_strlen on UTF-8 name → correct display width; enc() result is single-byte CP850
+            $out .= $this->enc($this->pad($name, 24)) . ' ' . $this->padL($qty, 7) . ' ' . $this->padL($total, 9) . self::LF;
         }
         $out .= $this->divider('-');
 
-        // === Totals ===
+        // === Totals (ASCII amounts — enc() is a no-op but keeps code uniform) ===
         $out .= $this->twoCol('Subtotal:', $this->cop($invoice['subtotal']));
         if ((float) $invoice['delivery_fee'] > 0) {
             $out .= $this->twoCol('Domicilio:', $this->cop($invoice['delivery_fee']));
@@ -88,11 +92,11 @@ class EscPosTicketRenderer
         $out .= $this->divider('=');
 
         // === FE status line ===
-        $out .= self::ALIGN_CENTER . $invoice['fe_label'] . self::LF;
+        $out .= self::ALIGN_CENTER . $this->enc($invoice['fe_label']) . self::LF;
 
         if (!empty($shop['footer'])) {
             $out .= $this->divider('-');
-            $out .= $shop['footer'] . self::LF;
+            $out .= $this->enc($shop['footer']) . self::LF;  // "¡Gracias..." has ¡
         }
 
         $out .= $this->divider('=');
@@ -104,20 +108,21 @@ class EscPosTicketRenderer
 
     public function renderQuickSale(array $payload): string
     {
-        $out  = self::INIT;
+        // INIT resets printer (including code page); set PC850 immediately after.
+        $out  = self::INIT . self::CODEPAGE_LATIN;
         $shop = $payload['shop'];
         $r    = $payload['receipt'];
 
         // === Header (same as invoice) ===
         $out .= self::ALIGN_CENTER;
-        $out .= self::BOLD_ON . mb_strtoupper($shop['name']) . self::LF . self::BOLD_OFF;
-        $out .= $shop['address'] . self::LF;
-        if ($shop['phone']) $out .= 'Tel: ' . $shop['phone'] . self::LF;
-        if ($shop['nit'])   $out .= 'NIT: ' . $shop['nit']   . self::LF;
+        $out .= self::BOLD_ON . $this->enc(mb_strtoupper($shop['name'])) . self::LF . self::BOLD_OFF;
+        $out .= $this->enc($shop['address']) . self::LF;
+        if ($shop['phone']) $out .= 'Tel: ' . $this->enc($shop['phone']) . self::LF;
+        if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
         $out .= $this->divider('=');
 
         // === Receipt type + number ===
-        $out .= self::BOLD_ON . 'VENTA RÁPIDA' . self::LF . self::BOLD_OFF;
+        $out .= self::BOLD_ON . $this->enc('VENTA RAPIDA') . self::LF . self::BOLD_OFF;
         $out .= self::ALIGN_LEFT;
         $out .= "Recibo N: {$r['number']}" . self::LF;
         $out .= "Fecha: {$r['date']}  {$r['time']}" . self::LF;
@@ -140,7 +145,7 @@ class EscPosTicketRenderer
         $out .= $this->divider('=');
 
         if (!empty($shop['footer'])) {
-            $out .= self::ALIGN_CENTER . $shop['footer'] . self::LF;
+            $out .= self::ALIGN_CENTER . $this->enc($shop['footer']) . self::LF;  // "¡Gracias..." has ¡
             $out .= $this->divider('=');
         }
 
@@ -183,5 +188,17 @@ class EscPosTicketRenderer
     {
         $n = (int) round((float) $amount);
         return '$' . number_format($n, 0, ',', '.');
+    }
+
+    /**
+     * Convert UTF-8 text → PC850 (IBM Multilingual Latin I) bytes.
+     * PC850 is selected via ESC t 2 and covers all Spanish accented characters,
+     * ñ/Ñ, ¡, ¿, and standard currency symbols.
+     * //TRANSLIT replaces characters with closest ASCII if not in CP850.
+     * //IGNORE drops any remaining unmappable characters.
+     */
+    private function enc(string $text): string
+    {
+        return iconv('UTF-8', 'CP850//TRANSLIT//IGNORE', $text) ?: $text;
     }
 }
