@@ -31,10 +31,21 @@ class ThermalPrinterService
                . "Impresora: " . $this->printerName() . "\n"
                . "Fecha:     " . $now->format('d/m/Y H:i:s') . "\n"
                . str_repeat('-', 42) . "\n"
+               // Charset diagnostic — must print with correct accents, no Chinese chars
+               . $this->cp850("Bogotá, CARNICERÍA\n")
+               . $this->cp850("ñ Ñ, ¡Gracias!\n")
+               . $this->cp850("á é í ó ú - Á É Í Ó Ú\n")
+               . $this->cp850("Precio: \$38.000\n")
+               . str_repeat('-', 42) . "\n"
                . "Don David POS - OK\n\n\n"
                . chr(0x1D) . chr(0x56) . chr(0x41) . chr(3); // FULL CUT
 
         $this->send($bytes);
+    }
+
+    private function cp850(string $text): string
+    {
+        return iconv('UTF-8', 'CP850//TRANSLIT//IGNORE', $text) ?: $text;
     }
 
     private function sendToSpooler(string $bytes, string $printerName): void
