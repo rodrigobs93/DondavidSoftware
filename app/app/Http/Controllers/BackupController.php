@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Setting;
 use App\Services\ThermalPrinterService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 use Symfony\Component\Process\Process;
 
 class BackupController extends Controller
@@ -73,5 +74,34 @@ class BackupController extends Controller
         } catch (\Throwable $e) {
             return response()->json(['ok' => false, 'error' => $e->getMessage()], 500);
         }
+    }
+
+    public function uploadLogo(Request $request)
+    {
+        $request->validate([
+            'logo' => ['required', 'image', 'mimes:jpeg,png,gif,webp', 'max:512'],
+        ]);
+
+        // Delete old logo if exists
+        $old = Setting::get('business_logo_path');
+        if ($old) {
+            Storage::disk('public')->delete($old);
+        }
+
+        $path = $request->file('logo')->store('logos', 'public');
+        Setting::set('business_logo_path', $path);
+
+        return back()->with('success', 'Logo actualizado correctamente.');
+    }
+
+    public function deleteLogo()
+    {
+        $path = Setting::get('business_logo_path');
+        if ($path) {
+            Storage::disk('public')->delete($path);
+        }
+        Setting::set('business_logo_path', '');
+
+        return back()->with('success', 'Logo eliminado.');
     }
 }

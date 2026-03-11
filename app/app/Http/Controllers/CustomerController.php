@@ -64,7 +64,22 @@ class CustomerController extends Controller
             'notes'         => ['nullable', 'string'],
         ]);
 
-        Customer::create($data);
+        $customer = Customer::create($data);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'customer' => [
+                    'id'           => $customer->id,
+                    'name'         => $customer->name,
+                    'business_name'=> $customer->business_name,
+                    'is_generic'   => false,
+                    'doc_type'     => $customer->doc_type,
+                    'doc_number'   => $customer->doc_number,
+                    'requires_fe'  => $customer->requires_fe,
+                ],
+            ], 201);
+        }
+
         return redirect()->route('customers.index')->with('success', 'Cliente creado.');
     }
 

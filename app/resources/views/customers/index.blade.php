@@ -22,44 +22,88 @@
         </button>
     </div>
 
-    {{-- Table --}}
-    <div class="bg-white rounded-lg shadow overflow-hidden"
+    {{-- MOBILE CARDS --}}
+    <div class="sm:hidden space-y-2 mb-4"
          :class="loading ? 'opacity-50 pointer-events-none' : ''">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b">
+        <template x-for="c in customers" :key="c.id">
+            <div class="pos-card" :class="c.is_generic ? 'bg-gray-50' : ''">
+                <div class="pos-card-row mb-1">
+                    <span class="font-semibold text-gray-800">
+                        <span x-text="c.name"></span>
+                        <span x-show="c.is_generic" class="ml-1 text-xs text-gray-400 italic">(GENÉRICO)</span>
+                    </span>
+                    <span class="flex gap-1 items-center">
+                        <span x-show="c.requires_fe" class="badge-fe">FE</span>
+                        <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                              :class="c.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                              x-text="c.active ? 'Activo' : 'Inactivo'"></span>
+                    </span>
+                </div>
+                <div class="pos-card-row" x-show="c.business_name">
+                    <span class="pos-card-label">Razón social</span>
+                    <span class="pos-card-value truncate max-w-[60%]" x-text="c.business_name"></span>
+                </div>
+                <div class="pos-card-row">
+                    <span class="pos-card-label">Documento</span>
+                    <span class="pos-card-value" x-text="c.doc_label || '—'"></span>
+                </div>
+                <div class="pos-card-row" x-show="c.phone">
+                    <span class="pos-card-label">Teléfono</span>
+                    <span class="pos-card-value" x-text="c.phone"></span>
+                </div>
+                <div class="mt-2 flex gap-2 justify-end" x-show="!c.is_generic">
+                    <a :href="'/customers/' + c.id + '/edit'" class="pos-btn pos-btn-secondary text-xs py-1">Editar</a>
+                    <form :action="'/customers/' + c.id" method="POST" class="inline"
+                          @submit.prevent="if(confirm('¿Eliminar a «' + c.name + '»?')) $el.submit()">
+                        <input type="hidden" name="_token" value="{{ csrf_token() }}">
+                        <input type="hidden" name="_method" value="DELETE">
+                        <button type="submit" class="pos-btn pos-btn-danger text-xs py-1">Eliminar</button>
+                    </form>
+                </div>
+            </div>
+        </template>
+        <div x-show="!loading && customers.length === 0" class="text-center py-8 text-gray-400 text-sm">
+            No se encontraron clientes.
+        </div>
+    </div>
+
+    {{-- DESKTOP TABLE --}}
+    <div class="hidden sm:block bg-white rounded-lg shadow overflow-hidden"
+         :class="loading ? 'opacity-50 pointer-events-none' : ''">
+        <table class="pos-table">
+            <thead>
                 <tr>
-                    <th class="text-left px-4 py-3 text-gray-600 font-semibold">Nombre</th>
-                    <th class="text-left px-4 py-3 text-gray-600 font-semibold hidden sm:table-cell">Razón social</th>
-                    <th class="text-left px-4 py-3 text-gray-600 font-semibold">Documento</th>
-                    <th class="text-left px-4 py-3 text-gray-600 font-semibold">Teléfono</th>
-                    <th class="text-center px-4 py-3 text-gray-600 font-semibold">FE</th>
-                    <th class="text-center px-4 py-3 text-gray-600 font-semibold">Estado</th>
-                    <th class="px-4 py-3"></th>
+                    <th>Nombre</th>
+                    <th>Razón social</th>
+                    <th>Documento</th>
+                    <th>Teléfono</th>
+                    <th class="text-center">FE</th>
+                    <th class="text-center">Estado</th>
+                    <th></th>
                 </tr>
             </thead>
-            <tbody class="divide-y">
+            <tbody>
                 <template x-for="c in customers" :key="c.id">
-                    <tr class="hover:bg-gray-50" :class="c.is_generic ? 'bg-gray-50' : ''">
-                        <td class="px-4 py-3 font-medium">
+                    <tr :class="c.is_generic ? 'bg-gray-50' : ''">
+                        <td class="font-medium">
                             <span x-text="c.name"></span>
                             <span x-show="c.is_generic" class="ml-1 text-xs text-gray-400 italic">(GENÉRICO)</span>
                         </td>
-                        <td class="px-4 py-3 text-gray-500 hidden sm:table-cell max-w-56">
+                        <td class="text-gray-500 max-w-56">
                             <span class="block truncate" x-text="c.business_name || '—'"></span>
                         </td>
-                        <td class="px-4 py-3 text-gray-500" x-text="c.doc_label || '—'"></td>
-                        <td class="px-4 py-3 text-gray-500" x-text="c.phone || '—'"></td>
-                        <td class="px-4 py-3 text-center">
-                            <span x-show="c.requires_fe"
-                                  class="px-2 py-0.5 rounded-full text-xs bg-blue-100 text-blue-700 font-semibold">Sí</span>
+                        <td class="text-gray-500" x-text="c.doc_label || '—'"></td>
+                        <td class="text-gray-500" x-text="c.phone || '—'"></td>
+                        <td class="text-center">
+                            <span x-show="c.requires_fe" class="badge-fe">Sí</span>
                             <span x-show="!c.requires_fe" class="text-gray-300 text-xs">No</span>
                         </td>
-                        <td class="px-4 py-3 text-center">
+                        <td class="text-center">
                             <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
                                   :class="c.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
                                   x-text="c.active ? 'Activo' : 'Inactivo'"></span>
                         </td>
-                        <td class="px-4 py-3 text-right space-x-2 whitespace-nowrap">
+                        <td class="text-right space-x-2 whitespace-nowrap">
                             <a x-show="!c.is_generic"
                                :href="'/customers/' + c.id + '/edit'"
                                class="text-blue-600 hover:text-blue-800 text-xs">Editar</a>
@@ -77,7 +121,7 @@
                     </tr>
                 </template>
                 <tr x-show="!loading && customers.length === 0">
-                    <td colspan="7" class="text-center py-8 text-gray-400 text-sm">
+                    <td colspan="7" class="text-center py-8 text-gray-400">
                         No se encontraron clientes.
                     </td>
                 </tr>

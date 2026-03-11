@@ -2,7 +2,7 @@
 @section('title', 'Nueva Venta')
 
 @section('content')
-<div x-data="saleForm()" x-init="init()" x-cloak>
+<div x-data="saleForm()" x-init="init()" x-cloak class="sales-screen">
 
     {{-- =====================================================================
          MOBILE TAB BAR — hidden on md+
@@ -92,17 +92,57 @@
                     </div>
 
                     {{-- FE Toggle --}}
-                    <div class="mt-3 pt-3 border-t">
+                    <div class="mt-3 pt-3 border-t"
+                         :class="requiresFe ? 'fe-active-box' : ''">
                         <label class="flex items-center gap-2 cursor-pointer">
                             <input type="checkbox" x-model="requiresFe"
                                    @change="onFeToggle()" class="rounded">
                             <input type="hidden" name="requires_fe" :value="requiresFe ? 1 : 0">
                             <span class="text-sm font-medium text-gray-700">Requiere Factura Electrónica (FE)</span>
+                            <span x-show="requiresFe" class="badge-fe text-xs">FE</span>
                         </label>
-                        <div x-show="feError" class="text-red-500 text-xs mt-1" x-text="feError"></div>
+
+                        {{-- Error when FE + valid customer missing doc --}}
+                        <div x-show="feError && !isGenericSelected"
+                             class="text-red-500 text-xs mt-1" x-text="feError"></div>
+
+                        {{-- OK state --}}
                         <div x-show="requiresFe && selectedCustomer && !selectedCustomer.is_generic && selectedCustomer.doc_number"
                              class="text-xs text-green-600 mt-1">
-                            OK — cliente con documento válido
+                            ✓ Cliente con documento válido para FE
+                        </div>
+
+                        {{-- Inline FE customer form when GENÉRICO is selected --}}
+                        <div x-show="requiresFe && isGenericSelected" x-cloak
+                             class="mt-2 border border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2">
+                            <p class="text-sm font-semibold text-amber-800">Datos del cliente para FE</p>
+                            <input x-model="feForm.name" placeholder="Nombre completo *"
+                                   class="border rounded px-2 py-1.5 text-sm w-full">
+                            <input x-model="feForm.email" placeholder="Email (opcional)"
+                                   class="border rounded px-2 py-1.5 text-sm w-full">
+                            <div class="flex gap-2">
+                                <select x-model="feForm.doc_type" class="border rounded px-2 py-1.5 text-sm w-1/3">
+                                    <option value="">Tipo doc</option>
+                                    <option value="CC">CC</option>
+                                    <option value="NIT">NIT</option>
+                                </select>
+                                <input x-model="feForm.doc_number" placeholder="Número de doc *"
+                                       class="border rounded px-2 py-1.5 text-sm flex-1">
+                            </div>
+                            <input x-show="feForm.doc_type === 'NIT'" x-model="feForm.business_name"
+                                   placeholder="Razón social *"
+                                   class="border rounded px-2 py-1.5 text-sm w-full">
+                            @if($isAdmin)
+                            <button type="button" @click="createFeCustomer()" :disabled="feCreating"
+                                    class="pos-btn pos-btn-primary w-full text-sm justify-center disabled:opacity-50">
+                                <span x-show="!feCreating">Crear cliente con estos datos</span>
+                                <span x-show="feCreating">Creando…</span>
+                            </button>
+                            @else
+                            <p class="text-xs text-amber-700">Solo un administrador puede crear clientes. Selecciona un cliente existente o pide ayuda.</p>
+                            @endif
+                            <p x-show="feCreateError" x-text="feCreateError"
+                               class="text-xs text-red-600"></p>
                         </div>
                     </div>
                 </div>
@@ -511,6 +551,9 @@ function saleForm() {
         deliveryFee:          0,
         requiresFe:           false,
         feError:              '',
+        feForm:               { name: '', email: '', doc_type: '', doc_number: '', business_name: '' },
+        feCreating:           false,
+        feCreateError:        '',
         customerSearch:       '',
         customerResults:      [],
         showCustomerDropdown: false,
@@ -580,7 +623,10 @@ function saleForm() {
             return this.paidAmount > this.total + 0.001;
         },
         get canSubmit() {
-            return this.items.length > 0 && !this.overpay && !this.feError && this.total > 0;
+            return this.items.length > 0 && !this.overpay && !this.feError && this.total > 0 && !this.isGenericSelected;
+        },
+        get isGenericSelected() {
+            return !!(this.selectedCustomer && this.selectedCustomer.is_generic);
         },
         get todayStr() {
             return __todayStr;
@@ -728,10 +774,43 @@ function saleForm() {
             this.feError = '';
             if (!this.requiresFe) return;
             if (!this.selectedCustomer || this.selectedCustomer.is_generic) {
-                this.feError = 'FE no aplica para cliente GENÉRICO. Selecciona otro cliente.';
+                this.feError = 'FE requiere un cliente con documento. Usa el formulario o selecciona otro.';
             } else if (!this.selectedCustomer.doc_number) {
                 this.feError = 'El cliente necesita número de documento para FE.';
             }
+        },
+
+        async createFeCustomer() {
+            this.feCreateError = '';
+            if (!this.feForm.name || !this.feForm.doc_type || !this.feForm.doc_number) {
+                this.feCreateError = 'Nombre, tipo y número de documento son requeridos.';
+                return;
+            }
+            if (this.feForm.doc_type === 'NIT' && !this.feForm.business_name) {
+                this.feCreateError = 'Razón social requerida para NIT.';
+                return;
+            }
+            this.feCreating = true;
+            const csrf = document.querySelector('meta[name="csrf-token"]').content;
+            const res = await fetch('/customers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf, 'Accept': 'application/json' },
+                body: JSON.stringify({ ...this.feForm, requires_fe: true }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) {
+                this.feCreateError = data.message ?? 'Error al crear cliente.';
+                this.feCreating = false;
+                return;
+            }
+            // Auto-select new customer and clear FE form
+            this.selectedCustomer     = data.customer;
+            this.customerSearch       = data.customer.name;
+            this.showCustomerDropdown = false;
+            this.requiresFe           = true;
+            this.feError              = '';
+            this.feCreating           = false;
+            this.feForm               = { name: '', email: '', doc_type: '', doc_number: '', business_name: '' };
         },
 
         // ── Payments ────────────────────────────────────────────────────────

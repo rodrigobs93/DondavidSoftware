@@ -49,7 +49,8 @@ class SaleController extends Controller
             ]);
         }
 
-        return view('sales.create', compact('generic', 'cats'));
+        $isAdmin = auth()->user()->isAdmin();
+        return view('sales.create', compact('generic', 'cats', 'isAdmin'));
     }
 
     public function store(Request $request)

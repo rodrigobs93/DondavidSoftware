@@ -56,10 +56,55 @@
         <span x-show="bulkLoading" class="text-xs text-gray-400">Procesando…</span>
     </div>
 
-    {{-- Table --}}
-    <div class="bg-white rounded-lg shadow overflow-hidden"
+    {{-- MOBILE CARDS --}}
+    <div class="sm:hidden space-y-2 mb-4"
          :class="loading ? 'opacity-50 pointer-events-none' : ''">
-        <table class="w-full text-sm">
+        <template x-for="pay in payments" :key="pay.id">
+            <div class="pos-card" :class="pay.verified ? 'bg-green-50/40' : ''">
+                <div class="pos-card-row mb-1">
+                    <a :href="pay.quick_sale_id ? '/quick-sales/' + pay.quick_sale_id : '/invoices/' + pay.invoice_id"
+                       class="font-mono font-bold text-blue-600" x-text="pay.consecutive"></a>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          :class="pay.verified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
+                          x-text="pay.verified ? '✓ Verificado' : 'Pendiente'"></span>
+                </div>
+                <div class="pos-card-row">
+                    <span class="pos-card-label">Cliente</span>
+                    <span class="pos-card-value truncate max-w-[60%]" x-text="pay.customer_name"></span>
+                </div>
+                <div class="pos-card-row">
+                    <span class="pos-card-label">Método</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          :class="{
+                              'bg-green-100 text-green-700':   pay.method === 'CASH',
+                              'bg-blue-100  text-blue-700':    pay.method === 'CARD',
+                              'bg-pink-100  text-pink-700':    pay.method === 'NEQUI',
+                              'bg-red-100   text-red-700':     pay.method === 'DAVIPLATA',
+                              'bg-purple-100 text-purple-700': pay.method === 'BREB',
+                          }"
+                          x-text="pay.method_label"></span>
+                </div>
+                <div class="pos-card-row">
+                    <span class="pos-card-label">Monto</span>
+                    <span class="pos-card-value font-semibold font-mono" x-text="formatCOP(pay.amount)"></span>
+                </div>
+                <div class="mt-2 text-right" x-show="!pay.verified">
+                    <button type="button" @click="verifySingle(pay)" class="pos-btn-primary text-xs py-1">
+                        Verificar
+                    </button>
+                </div>
+                <div class="mt-1 text-right text-xs text-gray-400" x-show="pay.verified" x-text="pay.verified_at || ''"></div>
+            </div>
+        </template>
+        <div x-show="!loading && payments.length === 0" class="text-center py-8 text-gray-400 text-sm">
+            No hay pagos en este filtro.
+        </div>
+    </div>
+
+    {{-- DESKTOP TABLE --}}
+    <div class="hidden sm:block bg-white rounded-lg shadow overflow-hidden"
+         :class="loading ? 'opacity-50 pointer-events-none' : ''">
+        <table class="pos-table">
             <thead class="bg-gray-50 border-b">
                 <tr>
                     <th class="px-3 py-3 w-8">
@@ -174,7 +219,7 @@
                 </tr>
             </tfoot>
         </table>
-    </div>
+    </div>{{-- end desktop table --}}
 
     {{-- Pagination: only when no filters active --}}
     <div x-show="!hasFilters" class="mt-4">
@@ -300,9 +345,7 @@ function paymentReport() {
             this.bulkLoading = false;
         },
 
-        fmt(val) {
-            return '$' + parseFloat(val).toLocaleString('es-CO', { maximumFractionDigits: 0 });
-        },
+        fmt: window.formatCOP,
     };
 }
 </script>

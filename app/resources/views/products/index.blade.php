@@ -93,18 +93,51 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
         </div>
     </div>
 
-    {{-- Products table --}}
-    <div class="bg-white rounded-lg shadow overflow-hidden">
-        <table class="w-full text-sm">
-            <thead class="bg-gray-50 border-b">
+    {{-- MOBILE CARDS --}}
+    <div class="sm:hidden space-y-2 mb-4" :class="loading ? 'opacity-50 pointer-events-none' : ''">
+        <template x-for="product in products" :key="product.id" x-data>
+            <div class="pos-card">
+                <div class="pos-card-row mb-1">
+                    <span class="font-semibold text-gray-800" x-text="product.name"></span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          :class="product.sale_unit === 'KG' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'"
+                          x-text="product.sale_unit === 'KG' ? 'kg' : 'und'"></span>
+                </div>
+                <div class="pos-card-row" x-show="product.category_name">
+                    <span class="pos-card-label">Categoría</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700"
+                          x-text="product.category_name"></span>
+                </div>
+                <div class="pos-card-row">
+                    <span class="pos-card-label">Precio</span>
+                    <span class="pos-card-value font-semibold" x-text="formatCOP(product.base_price)"></span>
+                </div>
+                <div class="pos-card-row">
+                    <span class="pos-card-label">Estado</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
+                          :class="product.active ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'"
+                          x-text="product.active ? 'Activo' : 'Inactivo'"></span>
+                </div>
+                <p class="text-xs text-gray-400 mt-1">Usa escritorio para editar precio o nombre.</p>
+            </div>
+        </template>
+        <div x-show="!loading && products.length === 0" class="text-center py-8 text-gray-400 text-sm">
+            No se encontraron productos.
+        </div>
+    </div>
+
+    {{-- DESKTOP TABLE --}}
+    <div class="hidden sm:block bg-white rounded-lg shadow overflow-hidden">
+        <table class="pos-table">
+            <thead>
                 <tr>
-                    <th class="text-left px-4 py-3 text-gray-600 font-semibold">Producto</th>
-                    <th class="text-left px-4 py-3 text-gray-600 font-semibold">Categoría</th>
-                    <th class="text-center px-4 py-3 text-gray-600 font-semibold">Unidad</th>
-                    <th class="text-right px-4 py-3 text-gray-600 font-semibold">Precio actual</th>
-                    <th class="text-left px-4 py-3 text-gray-600 font-semibold">Actualizado</th>
-                    <th class="text-center px-4 py-3 text-gray-600 font-semibold">Estado</th>
-                    <th class="px-4 py-3"></th>
+                    <th>Producto</th>
+                    <th>Categoría</th>
+                    <th class="text-center">Unidad</th>
+                    <th class="text-right">Precio actual</th>
+                    <th>Actualizado</th>
+                    <th class="text-center">Estado</th>
+                    <th></th>
                 </tr>
             </thead>
             <tbody :class="loading ? 'opacity-50 pointer-events-none' : ''">
@@ -153,15 +186,14 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                         <td class="px-4 py-3 text-center">
                             <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
                                   :class="product.sale_unit === 'KG' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'"
-                                  x-text="product.sale_unit"></span>
+                                  x-text="product.sale_unit === 'KG' ? 'kg' : 'und'"></span>
                         </td>
                         {{-- Price --}}
                         <td class="px-4 py-3 text-right">
                             <span x-show="!editingPrice" @dblclick="editingPrice=true"
                                   class="font-semibold cursor-pointer hover:text-blue-600"
-                                  title="Doble clic para editar precio">
-                                $<span x-text="price.toLocaleString('es-CO')"></span>
-                            </span>
+                                  title="Doble clic para editar precio"
+                                  x-text="formatCOP(price)"></span>
                             <form x-show="editingPrice" x-cloak @submit.prevent="savePrice()" class="flex items-center gap-1 justify-end">
                                 <span class="text-gray-500">$</span>
                                 <input type="number" x-model.number="newPrice" x-ref="priceInput"
@@ -216,7 +248,7 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                 </tr>
             </tbody>
         </table>
-    </div>
+    </div>{{-- end desktop table --}}
 
 </div>{{-- end x-data="productFilter()" --}}
 

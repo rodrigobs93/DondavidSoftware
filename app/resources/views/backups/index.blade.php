@@ -4,6 +4,45 @@
 @section('content')
 <h1 class="text-xl font-bold text-gray-800 mb-4">Configuración y Backups</h1>
 
+{{-- Logo upload --}}
+<div class="bg-white rounded-lg shadow p-6 mb-6">
+    <h2 class="font-semibold text-gray-700 mb-4">Logo del negocio</h2>
+    @if($settings['business_logo_path'] ?? '')
+        <div class="flex items-center gap-4 mb-4">
+            <img src="{{ \Illuminate\Support\Facades\Storage::url($settings['business_logo_path']) }}"
+                 class="h-16 w-auto rounded border border-gray-200" alt="Logo actual">
+            <form method="POST" action="{{ route('backups.logo.delete') }}">
+                @csrf
+                @method('DELETE')
+                <button type="button"
+                        onclick="if(confirm('¿Eliminar el logo?')) this.closest('form').submit()"
+                        class="pos-btn pos-btn-danger text-xs">
+                    Eliminar logo
+                </button>
+            </form>
+        </div>
+    @else
+        <p class="text-sm text-gray-400 mb-3">No hay logo configurado.</p>
+    @endif
+    <form method="POST" action="{{ route('backups.logo.upload') }}" enctype="multipart/form-data">
+        @csrf
+        <div class="flex gap-3 items-end flex-wrap">
+            <div>
+                <label class="block text-xs text-gray-600 mb-1">
+                    Subir {{ ($settings['business_logo_path'] ?? '') ? 'nuevo' : '' }} logo
+                    <span class="text-gray-400">(JPG/PNG/WEBP, máx. 512 KB)</span>
+                </label>
+                <input type="file" name="logo" accept="image/jpeg,image/png,image/gif,image/webp"
+                       class="text-sm border rounded px-2 py-1.5 w-full">
+            </div>
+            <button type="submit" class="pos-btn pos-btn-primary text-sm">Subir logo</button>
+        </div>
+        @error('logo')
+            <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+        @enderror
+    </form>
+</div>
+
 <div class="grid md:grid-cols-2 gap-6">
     {{-- Shop settings --}}
     <div class="bg-white rounded-lg shadow p-6">
