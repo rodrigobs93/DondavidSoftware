@@ -30,9 +30,9 @@
             <div>
                 <label class="block text-xs text-gray-600 mb-1">
                     Subir {{ ($settings['business_logo_path'] ?? '') ? 'nuevo' : '' }} logo
-                    <span class="text-gray-400">(JPG/PNG/WEBP, máx. 512 KB)</span>
+                    <span class="text-gray-400">(JPG/PNG/WEBP/SVG, máx. 2 MB)</span>
                 </label>
-                <input type="file" name="logo" accept="image/jpeg,image/png,image/gif,image/webp"
+                <input type="file" name="logo" accept="image/jpeg,image/png,image/gif,image/webp,image/svg+xml,.svg"
                        class="text-sm border rounded px-2 py-1.5 w-full">
             </div>
             <button type="submit" class="pos-btn pos-btn-primary text-sm">Subir logo</button>

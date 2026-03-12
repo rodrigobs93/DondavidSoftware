@@ -79,19 +79,78 @@ class BackupController extends Controller
     public function uploadLogo(Request $request)
     {
         $request->validate([
-            'logo' => ['required', 'image', 'mimes:jpeg,png,gif,webp', 'max:512'],
+            'logo' => ['required', 'file', 'mimes:jpeg,png,gif,webp,svg', 'max:2048'],
         ]);
 
-        // Delete old logo if exists
+        $file = $request->file('logo');
+        $isSvg = in_array(strtolower($file->getClientOriginalExtension()), ['svg'])
+               || $file->getMimeType() === 'image/svg+xml';
+
+        if ($isSvg) {
+            $content = file_get_contents($file->getRealPath());
+            $cleaned = self::sanitizeSvg($content);
+            if ($cleaned === false) {
+                return back()->withErrors(['logo' => 'El archivo SVG no es válido o contiene contenido inseguro.']);
+            }
+            $filename = 'logos/' . \Illuminate\Support\Str::uuid() . '.svg';
+            Storage::disk('public')->put($filename, $cleaned);
+            $path = $filename;
+        } else {
+            $path = $file->store('logos', 'public');
+        }
+
+        // Delete old logo after successful store
         $old = Setting::get('business_logo_path');
         if ($old) {
             Storage::disk('public')->delete($old);
         }
 
-        $path = $request->file('logo')->store('logos', 'public');
         Setting::set('business_logo_path', $path);
 
         return back()->with('success', 'Logo actualizado correctamente.');
+    }
+
+    private static function sanitizeSvg(string $content): string|false
+    {
+        $doc = new \DOMDocument();
+        libxml_use_internal_errors(true);
+        $loaded = $doc->loadXML($content, LIBXML_NONET);
+        libxml_clear_errors();
+
+        if (!$loaded || $doc->documentElement?->localName !== 'svg') {
+            return false;
+        }
+
+        // Remove dangerous elements
+        foreach (['script', 'foreignObject', 'iframe', 'object', 'embed'] as $tag) {
+            foreach (iterator_to_array($doc->getElementsByTagName($tag)) as $el) {
+                $el->parentNode?->removeChild($el);
+            }
+        }
+
+        // Remove event-handler attributes and javascript: URIs from every element
+        $xpath = new \DOMXPath($doc);
+        foreach (iterator_to_array($xpath->query('//*')) as $el) {
+            if (!($el instanceof \DOMElement)) {
+                continue;
+            }
+            $remove = [];
+            foreach ($el->attributes as $attr) {
+                $name = strtolower($attr->nodeName);
+                $val  = strtolower(trim($attr->nodeValue));
+                if (str_starts_with($name, 'on')) {
+                    $remove[] = $attr->nodeName;
+                } elseif (in_array($name, ['href', 'xlink:href', 'src', 'action', 'formaction'])
+                          && str_starts_with(ltrim($val), 'javascript:')) {
+                    $remove[] = $attr->nodeName;
+                }
+            }
+            foreach ($remove as $a) {
+                $el->removeAttribute($a);
+            }
+        }
+
+        return $doc->saveXML($doc->documentElement);
     }
 
     public function deleteLogo()
