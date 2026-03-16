@@ -48,40 +48,135 @@
     $__logoPath    = \App\Models\Setting::get('business_logo_path');
     $__headerColor = \App\Models\Setting::get('header_color', '#111827');
     if (!preg_match('/^#[0-9a-fA-F]{6}$/', $__headerColor)) { $__headerColor = '#111827'; }
+    $__navActive = fn(string $route) => request()->routeIs($route)
+        ? 'bg-white/20 font-semibold rounded px-2 py-1'
+        : 'hover:bg-white/10 rounded px-2 py-1 transition';
 @endphp
-<nav class="text-white shadow" style="background-color: {{ $__headerColor }}" x-data>
-    <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
-        <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
-            @if($__logoPath)
-                <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" class="h-16  w-auto rounded" alt="Logo">
-            @else
-                <span class="font-bold text-lg tracking-wide">🥩 Don David POS</span>
-            @endif
-        </a>
-        <div class="flex items-center gap-4 text-sm">
-            @auth
-                <a href="{{ route('sales.create') }}" class="text-green-400 hover:text-green-300 font-semibold">+ Venta</a>
-                <a href="#" @click.prevent="$dispatch('open-quick-sale')"
-                   class="text-yellow-400 hover:text-yellow-300 font-semibold">⚡ Rápida</a>
-                <a href="{{ route('invoices.index') }}" class="hover:text-gray-300">Facturas</a>
-                <a href="{{ route('cartera.index') }}" class="hover:text-gray-300">Cartera</a>
-                <a href="{{ route('fe-pending.index') }}" class="hover:text-gray-300">FE</a>
-                @if(auth()->user()->isAdmin())
-                    <a href="{{ route('products.index') }}" class="hover:text-gray-300">Productos</a>
-                    <a href="{{ route('customers.index') }}" class="hover:text-gray-300">Clientes</a>
-                    <a href="{{ route('reports.payments') }}" class="hover:text-gray-300">Validación</a>
-                    <a href="{{ route('backups.index') }}" class="hover:text-gray-300">Config</a>
+<div x-data="{ menuOpen: false }" class="sticky top-0 z-50">
+
+    {{-- Backdrop (mobile/tablet only) --}}
+    <div x-show="menuOpen" x-cloak
+         class="fixed inset-0 bg-black/40 z-40 lg:hidden"
+         @click="menuOpen = false"></div>
+
+    <nav class="relative z-50 text-white shadow" style="background-color: {{ $__headerColor }}">
+        <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
+
+            {{-- Logo / Brand --}}
+            <a href="{{ route('dashboard') }}" class="flex items-center gap-2 shrink-0">
+                @if($__logoPath)
+                    <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" class="h-10 w-auto rounded" alt="Logo">
+                @else
+                    <span class="font-bold text-lg tracking-wide">🥩 Don David POS</span>
                 @endif
-                <span class="text-gray-400">|</span>
-                <span class="text-gray-300">{{ auth()->user()->name }}</span>
-                <form method="POST" action="{{ route('logout') }}" class="inline">
-                    @csrf
-                    <button class="text-gray-400 hover:text-white text-xs">Salir</button>
-                </form>
+            </a>
+
+            {{-- Desktop nav links (hidden below lg) --}}
+            <div class="hidden lg:flex items-center gap-1 text-sm">
+                @auth
+                    <a href="{{ route('sales.create') }}" class="text-green-400 hover:text-green-300 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">+ Venta</a>
+                    <a href="#" @click.prevent="$dispatch('open-quick-sale')"
+                       class="text-yellow-400 hover:text-yellow-300 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">⚡ Rápida</a>
+                    <a href="{{ route('invoices.index') }}" class="{{ $__navActive('invoices.*') }}">Facturas</a>
+                    <a href="{{ route('cartera.index') }}" class="{{ $__navActive('cartera.*') }}">Cartera</a>
+                    <a href="{{ route('fe-pending.index') }}" class="{{ $__navActive('fe-pending.*') }}">FE</a>
+                    @if(auth()->user()->isAdmin())
+                        <a href="{{ route('products.index') }}" class="{{ $__navActive('products.*') }}">Productos</a>
+                        <a href="{{ route('customers.index') }}" class="{{ $__navActive('customers.*') }}">Clientes</a>
+                        <a href="{{ route('reports.payments') }}" class="{{ $__navActive('reports.*') }}">Validación</a>
+                        <a href="{{ route('backups.index') }}" class="{{ $__navActive('backups.*') }}">Config</a>
+                    @endif
+                    <span class="text-white/30 mx-1">|</span>
+                    <span class="text-white/70 text-xs">{{ auth()->user()->name }}</span>
+                    <form method="POST" action="{{ route('logout') }}" class="inline ml-1">
+                        @csrf
+                        <button class="text-white/50 hover:text-white text-xs px-2 py-1 rounded hover:bg-white/10 transition">Salir</button>
+                    </form>
+                @endauth
+            </div>
+
+            {{-- Hamburger / Close button (visible below lg) --}}
+            @auth
+            <button @click="menuOpen = !menuOpen"
+                    class="lg:hidden p-2 rounded hover:bg-white/10 transition"
+                    aria-label="Menú">
+                <svg x-show="!menuOpen" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                     stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                </svg>
+                <svg x-show="menuOpen" x-cloak xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"
+                     stroke-width="1.5" stroke="currentColor" class="w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/>
+                </svg>
+            </button>
             @endauth
         </div>
-    </div>
-</nav>
+
+        {{-- Mobile dropdown menu --}}
+        <div x-show="menuOpen" x-cloak
+             x-transition:enter="transition ease-out duration-150"
+             x-transition:enter-start="opacity-0 -translate-y-1"
+             x-transition:enter-end="opacity-100 translate-y-0"
+             x-transition:leave="transition ease-in duration-100"
+             x-transition:leave-start="opacity-100 translate-y-0"
+             x-transition:leave-end="opacity-0 -translate-y-1"
+             @keydown.escape.window="menuOpen = false"
+             class="lg:hidden absolute top-full left-0 right-0 shadow-lg pb-2"
+             style="background-color: {{ $__headerColor }}">
+            @auth
+                <a href="{{ route('sales.create') }}" @click="menuOpen = false"
+                   class="flex items-center gap-2 py-3 px-5 text-sm text-green-400 font-semibold hover:bg-white/10 transition {{ request()->routeIs('sales.create') ? 'bg-white/20' : '' }}">
+                    + Venta
+                </a>
+                <button @click="menuOpen = false; $dispatch('open-quick-sale')"
+                        class="flex items-center gap-2 py-3 px-5 text-sm text-yellow-400 font-semibold hover:bg-white/10 transition w-full text-left">
+                    ⚡ Rápida
+                </button>
+                <a href="{{ route('invoices.index') }}" @click="menuOpen = false"
+                   class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('invoices.*') ? 'bg-white/20 font-semibold' : '' }}">
+                    Facturas
+                </a>
+                <a href="{{ route('cartera.index') }}" @click="menuOpen = false"
+                   class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('cartera.*') ? 'bg-white/20 font-semibold' : '' }}">
+                    Cartera
+                </a>
+                <a href="{{ route('fe-pending.index') }}" @click="menuOpen = false"
+                   class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('fe-pending.*') ? 'bg-white/20 font-semibold' : '' }}">
+                    FE Pendiente
+                </a>
+                @if(auth()->user()->isAdmin())
+                    <hr class="border-white/20 my-1 mx-4">
+                    <a href="{{ route('products.index') }}" @click="menuOpen = false"
+                       class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('products.*') ? 'bg-white/20 font-semibold' : '' }}">
+                        Productos
+                    </a>
+                    <a href="{{ route('customers.index') }}" @click="menuOpen = false"
+                       class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('customers.*') ? 'bg-white/20 font-semibold' : '' }}">
+                        Clientes
+                    </a>
+                    <a href="{{ route('reports.payments') }}" @click="menuOpen = false"
+                       class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('reports.*') ? 'bg-white/20 font-semibold' : '' }}">
+                        Validación de Pagos
+                    </a>
+                    <a href="{{ route('backups.index') }}" @click="menuOpen = false"
+                       class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('backups.*') ? 'bg-white/20 font-semibold' : '' }}">
+                        Configuración
+                    </a>
+                @endif
+                <hr class="border-white/20 my-1 mx-4">
+                <div class="flex items-center justify-between px-5 py-2">
+                    <span class="text-white/70 text-sm">{{ auth()->user()->name }}</span>
+                    <form method="POST" action="{{ route('logout') }}">
+                        @csrf
+                        <button class="text-white/60 hover:text-white text-sm px-3 py-1 rounded hover:bg-white/10 transition">
+                            Salir
+                        </button>
+                    </form>
+                </div>
+            @endauth
+        </div>
+    </nav>
+</div>
 
 <main class="max-w-7xl mx-auto px-4 py-6">
     {{-- Flash messages --}}
