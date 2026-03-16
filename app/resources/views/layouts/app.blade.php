@@ -53,7 +53,7 @@
     <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
         <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
             @if($__logoPath)
-                <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" class="h-8 w-auto rounded" alt="Logo">
+                <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" class="h-16  w-auto rounded" alt="Logo">
             @else
                 <span class="font-bold text-lg tracking-wide">🥩 Don David POS</span>
             @endif
