@@ -1,6 +1,22 @@
 @extends('layouts.app')
 @section('title', 'Configuración y Backups')
 
+@php
+$headerColors = [
+    '#111827' => 'Gris oscuro',
+    '#0f172a' => 'Negro azulado',
+    '#1e3a5f' => 'Azul marino',
+    '#1e1b4b' => 'Índigo',
+    '#4c1d95' => 'Morado',
+    '#7f1d1d' => 'Vinotinto',
+    '#7c2d12' => 'Naranja oscuro',
+    '#134e4a' => 'Verde teal',
+    '#14532d' => 'Verde selva',
+    '#1c1917' => 'Café oscuro',
+];
+$currentHeaderColor = $settings['header_color'] ?? '#111827';
+@endphp
+
 @section('content')
 <h1 class="text-xl font-bold text-gray-800 mb-4">Configuración y Backups</h1>
 
@@ -75,6 +91,32 @@
                     <input type="text" name="invoice_footer" value="{{ $settings['invoice_footer'] ?? '' }}"
                         class="w-full border rounded px-3 py-2 text-sm">
                 </div>
+            </div>
+
+            {{-- Header color --}}
+            <div class="mt-4" x-data="{ picked: '{{ $currentHeaderColor }}' }">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Color del header</label>
+                <div class="flex flex-wrap gap-2">
+                    @foreach($headerColors as $hex => $label)
+                    <label title="{{ $label }}" class="cursor-pointer">
+                        <input type="radio" name="header_color" value="{{ $hex }}" class="sr-only"
+                               {{ $currentHeaderColor === $hex ? 'checked' : '' }}
+                               @change="picked = '{{ $hex }}'; document.querySelector('nav').style.backgroundColor = '{{ $hex }}'">
+                        <span class="block w-8 h-8 rounded-full border-2 transition-all duration-150"
+                              style="background-color: {{ $hex }}"
+                              :class="picked === '{{ $hex }}' ? 'border-blue-500 ring-2 ring-blue-300 scale-110' : 'border-gray-300'">
+                        </span>
+                    </label>
+                    @endforeach
+                </div>
+                <p class="text-xs text-gray-400 mt-1">
+                    {{ $headerColors[$currentHeaderColor] ?? $currentHeaderColor }}
+                    <span x-show="picked !== '{{ $currentHeaderColor }}'" x-cloak
+                          class="text-blue-500"> → seleccionado: <span x-text="picked"></span></span>
+                </p>
+                @error('header_color')
+                    <p class="text-xs text-red-600 mt-1">{{ $message }}</p>
+                @enderror
             </div>
             <button class="mt-4 pos-btn-primary w-full">Guardar configuración</button>
         </form>

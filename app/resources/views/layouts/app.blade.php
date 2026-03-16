@@ -44,9 +44,13 @@
 <body class="bg-gray-100 min-h-screen">
 
 {{-- Top nav --}}
-<nav class="bg-gray-900 text-white shadow" x-data>
+@php
+    $__logoPath    = \App\Models\Setting::get('business_logo_path');
+    $__headerColor = \App\Models\Setting::get('header_color', '#111827');
+    if (!preg_match('/^#[0-9a-fA-F]{6}$/', $__headerColor)) { $__headerColor = '#111827'; }
+@endphp
+<nav class="text-white shadow" style="background-color: {{ $__headerColor }}" x-data>
     <div class="max-w-7xl mx-auto px-4 flex items-center justify-between h-14">
-        @php $__logoPath = \App\Models\Setting::get('business_logo_path'); @endphp
         <a href="{{ route('dashboard') }}" class="flex items-center gap-2">
             @if($__logoPath)
                 <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" class="h-8 w-auto rounded" alt="Logo">

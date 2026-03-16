@@ -63,6 +63,14 @@ class BackupController extends Controller
             }
         }
 
+        if ($request->has('header_color')) {
+            $color = (string) $request->input('header_color', '#111827');
+            if (!preg_match('/^#[0-9a-fA-F]{6}$/', $color)) {
+                return back()->withErrors(['header_color' => 'Color no válido.']);
+            }
+            Setting::set('header_color', $color);
+        }
+
         return back()->with('success', 'Configuración guardada correctamente.');
     }
 
