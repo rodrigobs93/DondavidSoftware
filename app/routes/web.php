@@ -9,6 +9,7 @@ use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FePendingController;
 use App\Http\Controllers\InvoiceController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\MarquillaController;
 use App\Http\Controllers\QuickSaleController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
@@ -30,6 +31,9 @@ Route::middleware(['auth', 'lan'])->group(function () {
     // Sales
     Route::get('/sales/new', [SaleController::class, 'create'])->name('sales.create');
     Route::post('/sales', [SaleController::class, 'store'])->name('sales.store');
+
+    // Marquillas (product labels)
+    Route::post('/marquillas/print', [MarquillaController::class, 'print'])->name('marquillas.print');
 
     // Quick Sales
     Route::post('/quick-sales',                        [QuickSaleController::class, 'store'])->name('quick-sales.store');

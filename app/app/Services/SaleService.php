@@ -135,16 +135,12 @@ class SaleService
 
     public function markFeIssued(Invoice $invoice, string $feReference, User $issuedBy): void
     {
-        DB::transaction(function () use ($invoice, $feReference, $issuedBy) {
-            $invoice->update([
-                'fe_status'            => 'ISSUED',
-                'fe_reference'         => $feReference,
-                'fe_issued_at'         => now(),
-                'fe_issued_by_user_id' => $issuedBy->id,
-            ]);
-
-            $this->createPrintJob($invoice->fresh()->load(['customer', 'items', 'payments']));
-        });
+        $invoice->update([
+            'fe_status'            => 'ISSUED',
+            'fe_reference'         => $feReference,
+            'fe_issued_at'         => now(),
+            'fe_issued_by_user_id' => $issuedBy->id,
+        ]);
     }
 
     public function createPrintJob(Invoice $invoice): PrintJob

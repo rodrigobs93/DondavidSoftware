@@ -28,14 +28,13 @@ class InvoiceController extends Controller
         }
 
         $toRow = fn($inv) => [
-            'id'            => $inv->id,
-            'consecutive'   => $inv->consecutive,
-            'invoice_date'  => $inv->invoice_date->format('d/m/Y'),
-            'customer_name' => $inv->customer?->name ?? '—',
-            'total'         => (string) $inv->total,
-            'balance'       => (string) $inv->balance,
-            'status'        => $inv->status,
-            'fe_status'     => $inv->fe_status,
+            'id'                    => $inv->id,
+            'consecutive'           => $inv->consecutive,
+            'invoice_date'          => $inv->invoice_date->format('d/m/Y'),
+            'customer_name'         => $inv->customer?->name ?? '—',
+            'customer_business_name'=> $inv->customer?->business_name ?? '',
+            'total'                 => (string) $inv->total,
+            'status'                => $inv->status,
         ];
 
         if ($request->wantsJson()) {
@@ -82,6 +81,6 @@ class InvoiceController extends Controller
         }
 
         $this->saleService->markFeIssued($invoice, $request->fe_reference, auth()->user());
-        return back()->with('success', 'Factura electrónica marcada como emitida. Ticket impreso.');
+        return back()->with('success', 'Factura electrónica marcada como emitida.');
     }
 }

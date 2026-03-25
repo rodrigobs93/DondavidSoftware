@@ -56,7 +56,7 @@
                                    placeholder="Nombre o razón social…"
                                    autocomplete="off"
                                    class="border rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
-                            <input type="hidden" name="customer_id" :value="selectedCustomer?.id">
+                            <input type="hidden" name="customer_id" :value="selectedCustomer ? selectedCustomer.id : __genericId">
 
                             <div x-show="showCustomerDropdown && customerResults.length > 0"
                                  class="absolute z-20 w-full bg-white border rounded shadow-lg mt-1 max-h-48 overflow-auto">
@@ -634,14 +634,7 @@ function saleForm() {
 
         // ── Init ────────────────────────────────────────────────────────────
         init() {
-            // Pre-select generic customer
-            if (__genericId) {
-                this.selectedCustomer = {
-                    id: __genericId, name: __genericName,
-                    is_generic: true, doc_type: null, doc_number: null, requires_fe: false,
-                };
-                this.customerSearch = __genericName;
-            }
+            // Customer input starts blank; hidden field falls back to genericId on submit.
 
             // Keyboard shortcuts
             window.addEventListener('keydown', (e) => {

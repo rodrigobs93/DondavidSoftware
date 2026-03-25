@@ -19,12 +19,14 @@ class EscPosTicketRenderer
     private const BOLD_OFF     = "\x1B\x45\x00";
     private const ALIGN_LEFT   = "\x1B\x61\x00";
     private const ALIGN_CENTER = "\x1B\x61\x01";
-    private const SIZE_NORMAL  = "\x1D\x21\x00";   // 1×1 character size
+    private const SIZE_NORMAL  = "\x1D\x21\x00";   // 1×1 character size (GS !)
+    private const SIZE_DH      = "\x1B\x21\x18";   // double-height + bold (ESC ! 0x18)
+    private const SIZE_NML     = "\x1B\x21\x00";   // normal reset (ESC ! 0x00) — re-apply FONT_x after
     private const LF           = "\n";
 
-    // ── Minimum invoice ticket length (lines) ─────────────────────────────────
-    // At ~3.5 mm default line spacing: 20 cm ≈ 57 lines.  Tune if needed.
-    private const MIN_INVOICE_LINES = 57;
+    // ── Minimum ticket length (lines) ────────────────────────────────────────
+    private const MIN_INVOICE_LINES   = 46;  // 16 cm / 3.5 mm per line
+    private const MIN_MARQUILLA_LINES = 14;  // ~5 cm / 3.5 mm per line
 
     // ── Logo target width (dots) ──────────────────────────────────────────────
     // 384 dots ≈ 48 mm on a 203 DPI printer, centered on 80 mm (576-dot) paper.
@@ -79,11 +81,11 @@ class EscPosTicketRenderer
         $out .= $this->divider('-', self::WIDTH_B);
 
         // ── Column headers (font B) ───────────────────────────────────────────
-        // Layout (font B, 52 active chars): name(20) qty(6) price(12) total(11) + 3 spaces = 52
+        // Layout fills full WIDTH_B=56: name(20)+sp+qty(9)+sp+price(12)+sp+total(12) = 56
         $out .= $this->pad('DESCRIPCION', 20)
-              . ' ' . $this->padL('CANT',   6)
+              . ' ' . $this->padL('CANT',   9)
               . ' ' . $this->padL('P.UNIT', 12)
-              . ' ' . $this->padL('TOTAL',  11)
+              . ' ' . $this->padL('TOTAL',  12)
               . self::LF;
         $out .= $this->divider('-', self::WIDTH_B);
 
@@ -98,22 +100,22 @@ class EscPosTicketRenderer
             $total = $this->cop($item['line_total']);
 
             $out .= $this->enc($this->pad($name, 20))
-                  . ' ' . $this->padL($qty,   6)
+                  . ' ' . $this->padL($qty,   9)
                   . ' ' . $this->padL($price, 12)
-                  . ' ' . $this->padL($total, 11)
+                  . ' ' . $this->padL($total, 12)
                   . self::LF;
         }
         $out .= $this->divider('-', self::WIDTH_B);
 
-        // ── Totals (font A + bold for prominence) ─────────────────────────────
-        $out .= self::FONT_A . self::BOLD_ON;
-        $out .= $this->twoCol('Subtotal:', $this->cop($invoice['subtotal']), self::WIDTH_A);
+        // ── Totals (font B + bold, WIDTH_B = full 80 mm width) ───────────────
+        $out .= self::FONT_B . self::BOLD_ON;
+        $out .= $this->twoCol('Subtotal:', $this->cop($invoice['subtotal']), self::WIDTH_B);
         if ((float) $invoice['delivery_fee'] > 0) {
-            $out .= $this->twoCol('Domicilio:', $this->cop($invoice['delivery_fee']), self::WIDTH_A);
+            $out .= $this->twoCol('Domicilio:', $this->cop($invoice['delivery_fee']), self::WIDTH_B);
         }
-        $out .= $this->twoCol('TOTAL:', $this->cop($invoice['total']), self::WIDTH_A);
+        $out .= $this->twoCol('TOTAL:', $this->cop($invoice['total']), self::WIDTH_B);
         $out .= self::BOLD_OFF;
-        $out .= $this->divider('=', self::WIDTH_A);
+        $out .= $this->divider('=', self::WIDTH_B);
 
         // ── Payments (font B) ─────────────────────────────────────────────────
         $out .= self::FONT_B . 'PAGOS:' . self::LF;
@@ -122,29 +124,41 @@ class EscPosTicketRenderer
         }
         $out .= $this->divider('-', self::WIDTH_B);
 
-        // Paid/balance totals: back to font A + bold
-        $out .= self::FONT_A . self::BOLD_ON;
-        $out .= $this->twoCol('TOTAL PAGADO:', $this->cop($invoice['paid_amount']), self::WIDTH_A);
-        $out .= $this->twoCol('SALDO:',        $this->cop($invoice['balance']),     self::WIDTH_A);
+        // Paid/balance totals: font B + bold, full-width
+        $out .= self::FONT_B . self::BOLD_ON;
+        $out .= $this->twoCol('TOTAL PAGADO:', $this->cop($invoice['paid_amount']), self::WIDTH_B);
+        $out .= $this->twoCol('SALDO:',        $this->cop($invoice['balance']),     self::WIDTH_B);
         $out .= self::BOLD_OFF;
-        $out .= $this->divider('=', self::WIDTH_A);
+        $out .= $this->divider('=', self::WIDTH_B);
 
         // FE status line REMOVED per requirements
 
-        // ── Footer ────────────────────────────────────────────────────────────
+        // ── Footer (build separately so we can push it toward the bottom) ────
+        $footerBlock = '';
+        $footerLines = 0;
         if (!empty($shop['footer'])) {
-            $out .= self::FONT_B . self::ALIGN_CENTER;
             $footerEnc = $this->enc($shop['footer']);
+            $footerBlock .= self::FONT_B . self::ALIGN_CENTER;
             foreach (explode(self::LF, wordwrap($footerEnc, self::WIDTH_B, self::LF, true)) as $line) {
-                $out .= $line . self::LF;
+                $footerBlock .= $line . self::LF;
+                $footerLines++;
             }
-            $out .= $this->divider('=', self::WIDTH_B);
+            $footerBlock .= $this->divider('=', self::WIDTH_B);
+            $footerLines++;   // divider counts as one line
         }
 
-        // ── Minimum ticket length padding ─────────────────────────────────────
-        $linesAlready = substr_count($out, self::LF);
-        $extraLines   = max(0, self::MIN_INVOICE_LINES - $linesAlready);
-        $out .= str_repeat(self::LF, $extraLines);
+        // ── Padding: fill lines so footer lands near the tear-off edge ────────
+        $linesBeforeFooter  = substr_count($out, self::LF);
+        $targetBeforeFooter = self::MIN_INVOICE_LINES - $footerLines;
+        $prePad  = max(0, $targetBeforeFooter - $linesBeforeFooter);
+        $out .= str_repeat(self::LF, $prePad);
+
+        $out .= $footerBlock;
+
+        // Safety: ensure total is at least MIN_INVOICE_LINES
+        $totalLines = substr_count($out, self::LF);
+        $postPad    = max(0, self::MIN_INVOICE_LINES - $totalLines);
+        $out .= str_repeat(self::LF, $postPad);
 
         $out .= self::LF . self::LF . self::LF;
         $out .= self::CUT;
@@ -157,15 +171,20 @@ class EscPosTicketRenderer
     // ─────────────────────────────────────────────────────────────────────────
     public function renderQuickSale(array $payload): string
     {
-        $out  = self::INIT;
+        $out  = self::INIT . self::FONT_B;
         $shop = $payload['shop'];
         $r    = $payload['receipt'];
+
+        // ── Logo (raster only; SVG silently skipped) ──────────────────────────
+        $out .= $this->renderLogo($shop['logo_path'] ?? '');
 
         // ── Header (font A for shop name, font B for details) ─────────────────
         $out .= self::FONT_A . self::ALIGN_CENTER;
         $out .= self::BOLD_ON . $this->enc(mb_strtoupper($shop['name'])) . self::LF . self::BOLD_OFF;
         $out .= self::FONT_B;
-        $out .= $this->enc($shop['address']) . self::LF;
+        foreach (explode(self::LF, wordwrap($this->enc($shop['address']), self::WIDTH_A, self::LF, true)) as $line) {
+            $out .= $line . self::LF;
+        }
         if ($shop['phone']) $out .= 'Tel: ' . $this->enc($shop['phone']) . self::LF;
         if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
         $out .= $this->divider('=', self::WIDTH_A);
@@ -197,7 +216,10 @@ class EscPosTicketRenderer
         $out .= $this->divider('=', self::WIDTH_A);
 
         if (!empty($shop['footer'])) {
-            $out .= self::FONT_B . self::ALIGN_CENTER . $this->enc($shop['footer']) . self::LF;
+            $out .= self::FONT_B . self::ALIGN_CENTER;
+            foreach (explode(self::LF, wordwrap($this->enc($shop['footer']), self::WIDTH_B, self::LF, true)) as $line) {
+                $out .= $line . self::LF;
+            }
             $out .= $this->divider('=', self::WIDTH_B);
         }
 
@@ -211,7 +233,7 @@ class EscPosTicketRenderer
     // Private: render logo bitmap (raster only, GS v 0 command)
     // Returns empty string on any error or unsupported format (SVG).
     // ─────────────────────────────────────────────────────────────────────────
-    private function renderLogo(string $logoPath): string
+    private function renderLogo(string $logoPath, int $targetW = self::LOGO_TARGET_W, int $maxH = self::LOGO_MAX_H): string
     {
         if (empty($logoPath)) {
             return '';
@@ -239,14 +261,14 @@ class EscPosTicketRenderer
 
         $srcW  = imagesx($src);
         $srcH  = imagesy($src);
-        $ratio = self::LOGO_TARGET_W / $srcW;
+        $ratio = $targetW / $srcW;
         $dstW  = (int) ($srcW * $ratio);
         $dstH  = (int) ($srcH * $ratio);
 
         // Clamp height so logo doesn't take up the whole ticket
-        if ($dstH > self::LOGO_MAX_H) {
-            $dstH = self::LOGO_MAX_H;
-            $dstW = (int) ($srcW * self::LOGO_MAX_H / $srcH);
+        if ($dstH > $maxH) {
+            $dstH = $maxH;
+            $dstW = (int) ($srcW * $maxH / $srcH);
         }
 
         // Width must be a multiple of 8 (one byte = 8 dots)
@@ -300,7 +322,9 @@ class EscPosTicketRenderer
         $yL = $dstH & 0xFF;
         $yH = ($dstH >> 8) & 0xFF;
 
-        return self::ALIGN_CENTER
+        // ALIGN_LEFT ensures the image starts from the true left edge;
+        // centering is achieved by the prepended 0x00 bytes per row (not ESC a).
+        return self::ALIGN_LEFT
              . "\x1D\x76\x30\x00" . chr($xL) . chr($xH) . chr($yL) . chr($yH)
              . $rowData
              . self::LF;
@@ -372,5 +396,42 @@ class EscPosTicketRenderer
         ];
         $text = strtr($text, $map);
         return preg_replace('/[^\x00-\x7F]/', '', $text);
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Public: render one marquilla (product label) — includes INIT + CUT
+    // ─────────────────────────────────────────────────────────────────────────
+    public function renderMarquilla(array $shop, string $labelText): string
+    {
+        // SIZE_DWDH: ESC ! 0x38 = double-width (bit5) + double-height (bit4) + bold (bit3)
+        // With double-width, Font A's 42 columns become 21 usable columns.
+        $SIZE_DWDH  = "\x1B\x21\x38";
+        $CHAR_SPC   = "\x1B\x20\x03";   // ESC SP 3 — 3 extra dots between chars
+        $CHAR_SPC_0 = "\x1B\x20\x00";   // ESC SP 0 — restore normal spacing
+        $LABEL_WRAP = 21;                // columns available with double-width Font A
+
+        // Larger logo for labels: 320 dots ≈ 40 mm wide, max 120 dots tall (~15 mm)
+        $out  = self::INIT . self::FONT_A;
+        $out .= $this->renderLogo($shop['logo_path'] ?? '', 320, 120);
+
+        $out .= self::ALIGN_CENTER;
+        $out .= $this->divider('=', self::WIDTH_A);
+
+        // Label text — double-width + double-height + bold, extra letter spacing
+        // wordwrap at LABEL_WRAP to prevent mid-word cuts at the new width
+        $sanitized = $this->enc($labelText);
+        $wrapped   = explode(self::LF, wordwrap($sanitized, $LABEL_WRAP, self::LF, false));
+        $out .= $SIZE_DWDH . $CHAR_SPC;
+        foreach ($wrapped as $line) {
+            $out .= $line . self::LF;
+        }
+        $out .= self::SIZE_NML . $CHAR_SPC_0;
+
+        $out .= $this->divider('=', self::WIDTH_A);
+
+        // Auto length: no minimum padding — just a small feed before the cut
+        $out .= str_repeat(self::LF, 3);
+        $out .= self::CUT;
+        return $out;
     }
 }

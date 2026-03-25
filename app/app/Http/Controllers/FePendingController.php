@@ -18,7 +18,8 @@ class FePendingController extends Controller
         $query = Invoice::with('customer')
             ->where('requires_fe', true)
             ->where('voided', false)
-            ->orderBy('invoice_date', 'asc');
+            ->orderByRaw("CASE fe_status WHEN 'PENDING' THEN 0 ELSE 1 END")
+            ->orderBy('invoice_date', 'desc');
 
         $query->applyFilters($q, $startDate, $endDate);
 

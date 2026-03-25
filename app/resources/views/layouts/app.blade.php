@@ -77,6 +77,8 @@
                     <a href="{{ route('sales.create') }}" class="text-green-400 hover:text-green-300 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">+ Venta</a>
                     <a href="#" @click.prevent="$dispatch('open-quick-sale')"
                        class="text-yellow-400 hover:text-yellow-300 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">⚡ Rápida</a>
+                    <a href="#" @click.prevent="$dispatch('open-marquillas')"
+                       class="{{ $__navActive('') }} text-purple-300 hover:text-purple-200 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">🏷 Marquillas</a>
                     <a href="{{ route('invoices.index') }}" class="{{ $__navActive('invoices.*') }}">Facturas</a>
                     <a href="{{ route('cartera.index') }}" class="{{ $__navActive('cartera.*') }}">Cartera</a>
                     <a href="{{ route('fe-pending.index') }}" class="{{ $__navActive('fe-pending.*') }}">FE</a>
@@ -131,6 +133,10 @@
                 <button @click="menuOpen = false; $dispatch('open-quick-sale')"
                         class="flex items-center gap-2 py-3 px-5 text-sm text-yellow-400 font-semibold hover:bg-white/10 transition w-full text-left">
                     ⚡ Rápida
+                </button>
+                <button @click="menuOpen = false; $dispatch('open-marquillas')"
+                        class="flex items-center gap-2 py-3 px-5 text-sm text-purple-300 font-semibold hover:bg-white/10 transition w-full text-left">
+                    🏷 Marquillas
                 </button>
                 <a href="{{ route('invoices.index') }}" @click="menuOpen = false"
                    class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('invoices.*') ? 'bg-white/20 font-semibold' : '' }}">
@@ -204,5 +210,6 @@
 </main>
 
 @include('partials._quick-sale-modal')
+@include('partials._marquilla-modal')
 </body>
 </html>

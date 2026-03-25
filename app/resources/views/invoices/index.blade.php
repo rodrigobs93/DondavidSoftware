@@ -60,16 +60,15 @@
             <a :href="'/invoices/' + inv.id" class="pos-card block">
                 <div class="pos-card-row mb-1">
                     <span class="font-mono font-bold text-blue-600" x-text="inv.consecutive"></span>
-                    <span :class="{
-                              'badge-paid':    inv.status === 'PAID',
-                              'badge-partial': inv.status === 'PARTIAL',
-                              'badge-pending': inv.status === 'PENDING',
-                          }"
-                          x-text="inv.status"></span>
+                    <span :class="statusBadge(inv.status)" x-text="statusLabel(inv.status)"></span>
                 </div>
                 <div class="pos-card-row">
                     <span class="pos-card-label">Cliente</span>
                     <span class="pos-card-value truncate max-w-[60%]" x-text="inv.customer_name"></span>
+                </div>
+                <div class="pos-card-row" x-show="inv.customer_business_name">
+                    <span class="pos-card-label">Empresa</span>
+                    <span class="pos-card-value truncate max-w-[60%]" x-text="inv.customer_business_name"></span>
                 </div>
                 <div class="pos-card-row">
                     <span class="pos-card-label">Fecha</span>
@@ -78,10 +77,6 @@
                 <div class="pos-card-row">
                     <span class="pos-card-label">Total</span>
                     <span class="pos-card-value font-semibold" x-text="formatCOP(inv.total)"></span>
-                </div>
-                <div class="pos-card-row" x-show="parseFloat(inv.balance) > 0">
-                    <span class="pos-card-label">Saldo</span>
-                    <span class="pos-card-value text-yellow-700 font-semibold" x-text="formatCOP(inv.balance)"></span>
                 </div>
             </a>
         </template>
@@ -99,10 +94,9 @@
                     <th>#</th>
                     <th>Fecha</th>
                     <th>Cliente</th>
+                    <th>Empresa</th>
                     <th class="text-right">Total</th>
-                    <th class="text-right">Saldo</th>
                     <th class="text-center">Estado</th>
-                    <th class="text-center">FE</th>
                     <th></th>
                 </tr>
             </thead>
@@ -112,28 +106,12 @@
                         <td class="font-mono font-semibold text-blue-600">
                             <a :href="'/invoices/' + inv.id" x-text="inv.consecutive"></a>
                         </td>
-                        <td class="text-gray-600" x-text="inv.invoice_date"></td>
+                        <td class="text-gray-600 whitespace-nowrap" x-text="inv.invoice_date"></td>
                         <td x-text="inv.customer_name"></td>
+                        <td class="text-gray-500 text-sm" x-text="inv.customer_business_name"></td>
                         <td class="text-right font-semibold" x-text="formatCOP(inv.total)"></td>
-                        <td class="text-right"
-                            :class="parseFloat(inv.balance) > 0 ? 'text-yellow-700 font-semibold' : 'text-gray-400'"
-                            x-text="formatCOP(inv.balance)"></td>
                         <td class="text-center">
-                            <span :class="{
-                                      'badge-paid':    inv.status === 'PAID',
-                                      'badge-partial': inv.status === 'PARTIAL',
-                                      'badge-pending': inv.status === 'PENDING',
-                                  }"
-                                  x-text="inv.status"></span>
-                        </td>
-                        <td class="text-center">
-                            <span class="text-xs px-1.5 py-0.5 rounded"
-                                  :class="{
-                                      'bg-green-100 text-green-700': inv.fe_status === 'ISSUED',
-                                      'bg-blue-100 text-blue-700':   inv.fe_status === 'PENDING',
-                                      'bg-gray-100 text-gray-400':   inv.fe_status === 'NONE',
-                                  }"
-                                  x-text="inv.fe_status"></span>
+                            <span :class="statusBadge(inv.status)" x-text="statusLabel(inv.status)"></span>
                         </td>
                         <td>
                             <a :href="'/invoices/' + inv.id"
@@ -142,7 +120,7 @@
                     </tr>
                 </template>
                 <tr x-show="!loading && invoices.length === 0">
-                    <td colspan="8" class="py-8 text-center text-gray-400">No hay facturas.</td>
+                    <td colspan="7" class="py-8 text-center text-gray-400">No hay facturas.</td>
                 </tr>
             </tbody>
         </table>
@@ -205,6 +183,18 @@ function invoiceFilter() {
             this.endDate   = '';
             this.invoices  = __initialInvoices;
             history.replaceState({}, '', '/invoices');
+        },
+
+        statusLabel(s) {
+            return { PAID: 'Pagada', PARTIAL: 'Parcial', PENDING: 'Pendiente' }[s] ?? s;
+        },
+
+        statusBadge(s) {
+            return {
+                PAID:    'badge-paid',
+                PARTIAL: 'badge-partial',
+                PENDING: 'badge-pending',
+            }[s] ?? 'badge-pending';
         },
 
         fmt: window.formatCOP,
