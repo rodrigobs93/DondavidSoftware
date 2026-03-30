@@ -1,6 +1,6 @@
 # Don David Software — Project Context
 
-**Last updated:** 2026-03-25
+**Last updated:** 2026-03-30
 **Business:** Carnicería Don David · Plaza de Paloquemao · Bogotá, Colombia
 **Status:** MVP functional
 
@@ -186,6 +186,13 @@
     - Backdrop closes menu on tap; ESC key also closes.
     - Touch targets: ~48 px tall (`py-3 px-5`).
     - Inherits `header_color` setting.
+- **Touch-first design (2026-03-30):** All key tap targets enforced at min ~44 px.
+  - `.pos-btn`: `py-2.5` globally; `.form-input`: `text-base py-2.5`.
+  - `.sales-screen input/select/textarea`: `min-height: 44px` via CSS.
+  - `.pos-card-label`: `text-sm` (was `text-xs`) for readability.
+  - Payment chips, category chips, filter chips all at `py-2.5`/`py-2 text-sm` minimum.
+  - Finalize button: `py-4 text-lg`; TOTAL display: `text-xl`/`text-2xl`.
+  - Remove buttons (cart ×, payment ×): `p-2 min-w-9 min-h-9`.
 - **Role-based UI:** Admin-only actions (products, customers, backups) hidden/disabled for Cashier.
 - **Nav logo:** `h-10` height. Falls back to shop name text if no logo set.
 
@@ -220,3 +227,4 @@
 | 2026-03-11 | Responsive tables (mobile cards), FE inline customer creation, `format_cop()` PHP helper, `formatCOP`/`formatGrams` JS globals, logo upload (initial) |
 | 2026-03-16 | SVG logo support (2 MB, XSS-sanitized), configurable header color (10 swatches, live preview), hamburger menu (`< 1024 px`), ticket printing overhaul (logo bitmap, Font B body, unit price column, 16 cm minimum, footer placement, column widths) |
 | 2026-03-25 | Marquillas modal + `renderMarquilla()`, ticket fixes (logo on quick sale, word-wrap, column widths, totals WIDTH_B), FE auto-print bug removed, FE list ordering (PENDING first), invoices list cleanup (removed Saldo/FE columns, added Company column) |
+| 2026-03-30 | Touch-first UI audit + optimization — min 44px tap targets across all views; `/sales/new` priority (payment chips, qty panel, finalize button, TOTAL hierarchy, remove buttons); filter chips in invoices/customers/reports |
