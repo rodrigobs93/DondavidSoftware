@@ -47,6 +47,11 @@ Route::middleware(['auth', 'lan'])->group(function () {
 
     // Cartera
     Route::get('/cartera', [CarteraController::class, 'index'])->name('cartera.index');
+    // Consolidated customer payment — must be before the /{customer} route to avoid route conflict
+    Route::post('/cartera/customers/{customer}/payments', [CarteraController::class, 'addConsolidatedPayment'])->name('cartera.customer.payments');
+    // Customer detail — restrict to numeric IDs so 'customers' segment doesn't match
+    Route::get('/cartera/{customer}', [CarteraController::class, 'customer'])->name('cartera.customer')->where('customer', '[0-9]+');
+    // Invoice-level abono (existing, unchanged)
     Route::post('/cartera/{invoice}/payments', [CarteraController::class, 'addPayment'])->name('cartera.payments');
 
     // FE Pending

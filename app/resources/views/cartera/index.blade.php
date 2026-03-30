@@ -2,143 +2,135 @@
 @section('title', 'Cartera')
 
 @section('content')
-<div x-data="carteraFilter()">
+<div x-data="carteraIndex()" x-init="init()" x-cloak>
 
     {{-- Header --}}
     <div class="flex items-center justify-between mb-4">
-        <div>
-            <h1 class="text-xl font-bold text-gray-800">Cartera Pendiente</h1>
-            <p class="text-sm text-gray-500">
-                Total saldo: <strong class="text-yellow-700">${{ number_format($totalBalance, 0, ',', '.') }}</strong>
-                <span x-show="hasFilters" x-cloak class="ml-2">
-                    · Filtrado: <strong class="text-yellow-700" x-text="'$' + filteredBalance()"></strong>
-                </span>
-            </p>
+        <h1 class="text-xl font-bold text-gray-800">Cartera Pendiente</h1>
+        <div class="text-right">
+            <div class="text-xs text-gray-500">Total general pendiente</div>
+            <div class="text-2xl font-bold text-red-700 font-mono" x-text="formatCOP(globalBalance)"></div>
         </div>
     </div>
 
-    {{-- Filter bar --}}
-    <div class="bg-white rounded-lg shadow p-3 mb-4">
-        @include('partials._filter-bar')
+    {{-- Filters --}}
+    <div class="bg-white rounded-lg shadow p-4 mb-4 space-y-3">
+        <div class="flex gap-2 flex-wrap items-end">
+            <div class="flex-1 min-w-48">
+                <input type="text" x-model="q"
+                       @input.debounce.300ms="fetch()"
+                       placeholder="Buscar cliente o razón social…"
+                       class="border rounded px-3 py-2.5 text-base w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+            <div class="flex items-center gap-2">
+                <input type="date" x-model="startDate" @change="fetch()"
+                       class="border rounded px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+                <span class="text-gray-400 text-sm">—</span>
+                <input type="date" x-model="endDate" @change="fetch()"
+                       class="border rounded px-2 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+            </div>
+            <button type="button" x-show="q || startDate || endDate"
+                    @click="q=''; startDate=''; endDate=''; fetch()"
+                    class="pos-btn pos-btn-secondary text-sm">
+                Limpiar
+            </button>
+        </div>
+
+        {{-- Filtered balance when filters are active --}}
+        <div x-show="q || startDate || endDate" class="text-sm text-gray-500">
+            Resultado:
+            <span class="font-semibold text-gray-700"
+                  x-text="filteredBalance > 0 ? formatCOP(filteredBalance) + ' pendiente' : 'sin resultados'"></span>
+        </div>
     </div>
 
-    {{-- Cards --}}
-    <div class="space-y-3" :class="loading ? 'opacity-50 pointer-events-none' : ''">
-        <template x-for="inv in invoices" :key="inv.id">
-            <div class="bg-white rounded-lg shadow p-4" x-data="{ showAbono: false }">
-                <div class="flex items-start justify-between">
-                    <div>
-                        <div class="flex items-center gap-2">
-                            <a :href="'/invoices/' + inv.id"
-                               class="font-mono font-bold text-blue-600 hover:text-blue-800"
-                               x-text="'#' + inv.consecutive"></a>
-                            <span class="text-sm text-gray-500" x-text="inv.invoice_date"></span>
-                            <span :class="{
-                                      'badge-partial': inv.status === 'PARTIAL',
-                                      'badge-pending': inv.status === 'PENDING',
-                                  }"
-                                  x-text="inv.status === 'PARTIAL' ? 'PARCIAL' : 'PENDIENTE'"></span>
-                        </div>
-                        <p class="text-sm text-gray-700 mt-0.5" x-text="inv.customer_name"></p>
-                        <div class="flex gap-4 text-sm mt-1">
-                            <span class="text-gray-500"      x-text="'Total: '  + fmt(inv.total)"></span>
-                            <span class="text-green-600"     x-text="'Pagado: ' + fmt(inv.paid_amount)"></span>
-                            <span class="text-yellow-700 font-semibold" x-text="'Saldo: ' + fmt(inv.balance)"></span>
+    {{-- Loading --}}
+    <div x-show="loading" class="text-center py-8 text-gray-400 text-sm">Cargando…</div>
+
+    {{-- Empty state --}}
+    <div x-show="!loading && customers.length === 0"
+         class="bg-white rounded-lg shadow p-8 text-center text-gray-400">
+        <span x-text="q || startDate || endDate
+            ? 'Sin resultados para este filtro.'
+            : 'No hay facturas pendientes. ¡Todo al día!'"></span>
+    </div>
+
+    {{-- Customer rows --}}
+    <div x-show="!loading && customers.length > 0" class="space-y-2">
+        <template x-for="row in customers" :key="row.customer.id">
+            <a :href="'/cartera/' + row.customer.id"
+               class="block bg-white rounded-lg shadow hover:shadow-md transition-shadow border border-transparent hover:border-blue-200 p-4">
+                <div class="flex items-center justify-between gap-4">
+                    <div class="flex-1 min-w-0">
+                        <div class="font-semibold text-gray-800 text-base truncate"
+                             x-text="row.customer.name"></div>
+                        <div x-show="row.customer.business_name"
+                             class="text-sm text-gray-500 truncate"
+                             x-text="row.customer.business_name"></div>
+                        <div class="text-xs text-gray-400 mt-0.5"
+                             x-text="row.invoice_count + (row.invoice_count === 1 ? ' factura pendiente' : ' facturas pendientes')">
                         </div>
                     </div>
-                    <button type="button" @click="showAbono = !showAbono"
-                            class="pos-btn-success text-sm">
-                        <span x-show="!showAbono">+ Abonar</span>
-                        <span x-show="showAbono">Cancelar</span>
-                    </button>
+                    <div class="text-right shrink-0">
+                        <div class="text-xl font-bold text-red-700 font-mono"
+                             x-text="formatCOP(row.total_balance)"></div>
+                        <div x-show="parseFloat(row.customer.credit_balance) > 0"
+                             class="text-xs text-green-600 font-semibold mt-0.5"
+                             x-text="'Crédito: ' + formatCOP(row.customer.credit_balance)"></div>
+                        <div class="text-xs text-blue-500 mt-1">Ver detalle →</div>
+                    </div>
                 </div>
-
-                <div x-show="showAbono" x-cloak class="mt-3 pt-3 border-t">
-                    <form method="POST" :action="'/cartera/' + inv.id + '/payments'">
-                        <input type="hidden" name="_token" :value="__csrf">
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            <select name="method" class="border rounded px-2 py-2 text-sm">
-                                <option value="CASH">Efectivo</option>
-                                <option value="CARD">Tarjeta</option>
-                                <option value="NEQUI">Nequi</option>
-                                <option value="DAVIPLATA">Daviplata</option>
-                                <option value="BREB">Bre-B</option>
-                            </select>
-                            <input type="number" name="amount" placeholder="Monto a abonar"
-                                   min="0.01" step="0.01" :max="parseFloat(inv.balance)"
-                                   class="border rounded px-2 py-2 text-sm" required>
-                            <input type="text" name="notes" placeholder="Notas (opcional)"
-                                   class="border rounded px-2 py-2 text-sm">
-                            <button class="pos-btn-success w-full">Registrar</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
+            </a>
         </template>
-
-        {{-- Empty state --}}
-        <div x-show="!loading && invoices.length === 0"
-             class="bg-white rounded-lg shadow p-8 text-center text-gray-400">
-            No hay facturas con saldo pendiente.
-        </div>
     </div>
 
-    {{-- Pagination: only when no filters active --}}
-    <div x-show="!hasFilters" class="mt-4">
-        {{ $invoices->links() }}
-    </div>
-
-</div>{{-- end x-data --}}
+</div>
 
 <script>
-const __initialCartera  = {!! json_encode($initialData, JSON_HEX_TAG) !!};
-const __initialCQ       = @js($q);
-const __initialCStart   = @js($startDate);
-const __initialCEnd     = @js($endDate);
-const __csrf            = '{{ csrf_token() }}';
+const __carteraInitial      = {!! json_encode($initialData, JSON_HEX_TAG) !!};
+const __carteraGlobalBalance = {{ $globalTotalBalance }};
 
-function carteraFilter() {
+function carteraIndex() {
     return {
-        invoices:  __initialCartera,
-        loading:   false,
-        q:         __initialCQ,
-        startDate: __initialCStart,
-        endDate:   __initialCEnd,
+        customers:       __carteraInitial,
+        globalBalance:   __carteraGlobalBalance,
+        filteredBalance: 0,
+        q:               @js($q),
+        startDate:       @js($startDate),
+        endDate:         @js($endDate),
+        loading:         false,
 
-        get hasFilters() {
-            return !!(this.q || this.startDate || this.endDate);
+        init() {
+            this.computeFilteredBalance();
         },
 
-        async search() {
+        computeFilteredBalance() {
+            this.filteredBalance = this.customers.reduce((sum, row) => {
+                return sum + parseFloat(row.total_balance || 0);
+            }, 0);
+        },
+
+        async fetch() {
             this.loading = true;
-            const params = new URLSearchParams();
-            if (this.q)         params.set('q',          this.q);
-            if (this.startDate) params.set('start_date', this.startDate);
-            if (this.endDate)   params.set('end_date',   this.endDate);
+            try {
+                const params = new URLSearchParams();
+                if (this.q)         params.set('q',          this.q);
+                if (this.startDate) params.set('start_date', this.startDate);
+                if (this.endDate)   params.set('end_date',   this.endDate);
 
-            const res = await fetch(`/cartera?${params}`, {
-                headers: { 'Accept': 'application/json' },
-            });
-            this.invoices = await res.json();
-            history.replaceState({}, '', `/cartera${params.toString() ? '?' + params : ''}`);
-            this.loading = false;
-        },
+                const res  = await window.fetch('/cartera?' + params.toString(), {
+                    headers: { 'Accept': 'application/json' },
+                });
+                const data = await res.json();
 
-        clearFilters() {
-            this.q         = '';
-            this.startDate = '';
-            this.endDate   = '';
-            this.invoices  = __initialCartera;
-            history.replaceState({}, '', '/cartera');
-        },
-
-        filteredBalance() {
-            const sum = this.invoices.reduce((acc, inv) => acc + parseFloat(inv.balance), 0);
-            return sum.toLocaleString('es-CO', { maximumFractionDigits: 0 });
-        },
-
-        fmt(val) {
-            return '$' + parseFloat(val).toLocaleString('es-CO', { maximumFractionDigits: 0 });
+                this.customers     = data.customers;
+                this.globalBalance = parseFloat(data.global_total_balance || 0);
+                this.computeFilteredBalance();
+            } catch (e) {
+                console.error('Error cargando cartera:', e);
+            } finally {
+                this.loading = false;
+            }
         },
     };
 }
