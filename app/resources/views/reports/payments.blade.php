@@ -19,7 +19,7 @@
             <span class="text-xs text-gray-500">Método:</span>
             <template x-for="chip in methodChips" :key="chip.value">
                 <button type="button" @click="method = chip.value; search()"
-                        class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+                        class="px-3 py-2 rounded-full text-sm font-semibold border transition-colors"
                         :class="method === chip.value
                             ? 'bg-blue-600 text-white border-blue-600'
                             : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'">
@@ -46,7 +46,7 @@
               x-text="selected.size + ' pago(s) seleccionado(s)'"></span>
         <button type="button" @click="verifyBulk()"
                 :disabled="bulkLoading"
-                class="pos-btn-primary text-xs py-1">
+                class="pos-btn-primary text-sm py-2">
             Verificar seleccionados
         </button>
         <button type="button" @click="selected = new Set()"
@@ -89,7 +89,7 @@
                     <span class="pos-card-value font-semibold font-mono" x-text="formatCOP(pay.amount)"></span>
                 </div>
                 <div class="mt-2 text-right" x-show="!pay.verified">
-                    <button type="button" @click="verifySingle(pay)" class="pos-btn-primary text-xs py-1">
+                    <button type="button" @click="verifySingle(pay)" class="pos-btn-primary text-sm py-2">
                         Verificar
                     </button>
                 </div>
@@ -187,7 +187,7 @@
                             <button type="button"
                                     x-show="!pay.verified"
                                     @click="verifySingle(pay)"
-                                    class="pos-btn-primary text-xs py-1">
+                                    class="pos-btn-primary text-sm py-2">
                                 Verificar
                             </button>
                             <span x-show="pay.verified"

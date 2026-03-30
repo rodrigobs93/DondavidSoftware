@@ -42,7 +42,7 @@
             <span class="text-xs text-gray-500">Estado:</span>
             <template x-for="chip in statusChips" :key="chip.value">
                 <button type="button" @click="status = chip.value; fetchInvoices()"
-                        class="px-3 py-1 rounded-full text-xs font-semibold border transition-colors"
+                        class="px-3 py-2 rounded-full text-sm font-semibold border transition-colors"
                         :class="status === chip.value
                             ? 'bg-blue-600 text-white border-blue-600'
                             : 'bg-white text-gray-600 border-gray-300 hover:border-blue-400'">

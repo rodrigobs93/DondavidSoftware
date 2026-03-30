@@ -52,12 +52,12 @@
                     <span class="pos-card-value" x-text="c.phone"></span>
                 </div>
                 <div class="mt-2 flex gap-2 justify-end" x-show="!c.is_generic">
-                    <a :href="'/customers/' + c.id + '/edit'" class="pos-btn pos-btn-secondary text-xs py-1">Editar</a>
+                    <a :href="'/customers/' + c.id + '/edit'" class="pos-btn pos-btn-secondary text-sm py-2">Editar</a>
                     <form :action="'/customers/' + c.id" method="POST" class="inline"
                           @submit.prevent="if(confirm('¿Eliminar a «' + c.name + '»?')) $el.submit()">
                         <input type="hidden" name="_token" value="{{ csrf_token() }}">
                         <input type="hidden" name="_method" value="DELETE">
-                        <button type="submit" class="pos-btn pos-btn-danger text-xs py-1">Eliminar</button>
+                        <button type="submit" class="pos-btn pos-btn-danger text-sm py-2">Eliminar</button>
                     </form>
                 </div>
             </div>

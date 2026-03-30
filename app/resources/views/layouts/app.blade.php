@@ -9,12 +9,12 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         [x-cloak] { display: none !important; }
-        .pos-btn { @apply inline-flex items-center px-4 py-2 rounded font-semibold text-sm transition-colors; }
+        .pos-btn { @apply inline-flex items-center px-4 py-2.5 rounded font-semibold text-sm transition-colors; }
         .pos-btn-primary { @apply pos-btn bg-blue-600 text-white hover:bg-blue-700; }
         .pos-btn-success { @apply pos-btn bg-green-600 text-white hover:bg-green-700; }
         .pos-btn-danger  { @apply pos-btn bg-red-600 text-white hover:bg-red-700; }
         .pos-btn-secondary { @apply pos-btn bg-gray-200 text-gray-700 hover:bg-gray-300; }
-        .form-input { @apply block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-sm; }
+        .form-input { @apply block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base py-2.5; }
         .badge-paid    { @apply px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800; }
         .badge-partial { @apply px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800; }
         .badge-pending { @apply px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800; }
@@ -27,12 +27,12 @@
         .pos-table tbody td { padding: 0.5rem 0.75rem; color: #1f2937; }
         /* Mobile cards */
         .pos-card { background: white; border-radius: 0.5rem; border: 1px solid #e5e7eb; padding: 0.75rem; box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05); }
-        .pos-card-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; padding: 0.125rem 0; }
-        .pos-card-label { color: #6b7280; font-size: 0.75rem; }
+        .pos-card-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; padding: 0.25rem 0; }
+        .pos-card-label { color: #6b7280; font-size: 0.875rem; }
         .pos-card-value { color: #1f2937; font-weight: 500; }
         /* Sales screen larger font */
         .sales-screen { font-size: 1rem; }
-        .sales-screen input, .sales-screen select, .sales-screen textarea { font-size: 1rem; }
+        .sales-screen input, .sales-screen select, .sales-screen textarea { font-size: 1rem; min-height: 44px; padding-top: 0.625rem; padding-bottom: 0.625rem; }
         /* FE highlight */
         .fe-active-box { border: 1px solid #60a5fa; background: #eff6ff; border-radius: 0.5rem; padding: 0.75rem; }
     </style>

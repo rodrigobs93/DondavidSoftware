@@ -10,17 +10,17 @@
     <div class="flex md:hidden bg-white shadow rounded-lg mb-4 overflow-hidden text-sm font-semibold">
         <button type="button" @click="activeTab='cliente'"
                 :class="activeTab==='cliente' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                class="flex-1 py-2.5 text-center transition-colors">
+                class="flex-1 py-3.5 text-center transition-colors">
             Cliente
         </button>
         <button type="button" @click="activeTab='productos'"
                 :class="activeTab==='productos' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                class="flex-1 py-2.5 text-center transition-colors">
+                class="flex-1 py-3.5 text-center transition-colors">
             Productos
         </button>
         <button type="button" @click="activeTab='pagos'"
                 :class="activeTab==='pagos' ? 'bg-blue-600 text-white' : 'text-gray-600 hover:bg-gray-50'"
-                class="flex-1 py-2.5 text-center transition-colors">
+                class="flex-1 py-3.5 text-center transition-colors">
             Pagos
             <span x-show="items.length > 0"
                   class="ml-1 text-xs rounded-full px-1.5 py-0.5 bg-white text-blue-600"
@@ -55,14 +55,14 @@
                                    @keydown.escape="showCustomerDropdown=false"
                                    placeholder="Nombre o razón social…"
                                    autocomplete="off"
-                                   class="border rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                   class="border rounded px-3 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
                             <input type="hidden" name="customer_id" :value="selectedCustomer ? selectedCustomer.id : __genericId">
 
                             <div x-show="showCustomerDropdown && customerResults.length > 0"
                                  class="absolute z-20 w-full bg-white border rounded shadow-lg mt-1 max-h-48 overflow-auto">
                                 <template x-for="c in customerResults" :key="c.id">
                                     <button type="button" @click="selectCustomer(c)"
-                                            class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm"
+                                            class="w-full text-left px-3 py-3 hover:bg-blue-50 text-base"
                                             :class="c.is_generic ? 'text-gray-500 italic' : ''">
                                         <span x-text="c.name"></span>
                                         <span x-show="c.business_name"
@@ -80,7 +80,7 @@
                         @if($generic)
                         <button type="button"
                                 @click="selectCustomer({ id: {{ $generic->id }}, name: '{{ $generic->name }}', is_generic: true, doc_type: null, doc_number: null, requires_fe: false })"
-                                class="px-3 py-2 rounded-lg text-sm font-semibold border border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 whitespace-nowrap shrink-0">
+                                class="px-4 py-3 rounded-lg text-base font-semibold border border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 whitespace-nowrap shrink-0">
                             GENÉRICO
                         </button>
                         @endif
@@ -117,21 +117,21 @@
                              class="mt-2 border border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2">
                             <p class="text-sm font-semibold text-amber-800">Datos del cliente para FE</p>
                             <input x-model="feForm.name" placeholder="Nombre completo *"
-                                   class="border rounded px-2 py-1.5 text-sm w-full">
+                                   class="border rounded px-3 py-2.5 text-base w-full">
                             <input x-model="feForm.email" placeholder="Email (opcional)"
-                                   class="border rounded px-2 py-1.5 text-sm w-full">
+                                   class="border rounded px-3 py-2.5 text-base w-full">
                             <div class="flex gap-2">
-                                <select x-model="feForm.doc_type" class="border rounded px-2 py-1.5 text-sm w-1/3">
+                                <select x-model="feForm.doc_type" class="border rounded px-3 py-2.5 text-base w-1/3">
                                     <option value="">Tipo doc</option>
                                     <option value="CC">CC</option>
                                     <option value="NIT">NIT</option>
                                 </select>
                                 <input x-model="feForm.doc_number" placeholder="Número de doc *"
-                                       class="border rounded px-2 py-1.5 text-sm flex-1">
+                                       class="border rounded px-3 py-2.5 text-base flex-1">
                             </div>
                             <input x-show="feForm.doc_type === 'NIT'" x-model="feForm.business_name"
                                    placeholder="Razón social *"
-                                   class="border rounded px-2 py-1.5 text-sm w-full">
+                                   class="border rounded px-3 py-2.5 text-base w-full">
                             @if($isAdmin)
                             <button type="button" @click="createFeCustomer()" :disabled="feCreating"
                                     class="pos-btn pos-btn-primary w-full text-sm justify-center disabled:opacity-50">
@@ -158,12 +158,12 @@
                                @input.debounce.200ms=""
                                placeholder="Buscar en todo el catálogo…"
                                autocomplete="off"
-                               class="border rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
+                               class="border rounded px-3 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
                         <div x-show="globalResults.length > 0"
                              class="absolute z-20 w-full bg-white border rounded shadow-lg mt-1 max-h-52 overflow-auto">
                             <template x-for="p in globalResults" :key="'gs-'+p.id">
                                 <button type="button" @click="selectPending(p); globalSearch=''"
-                                        class="w-full text-left px-3 py-2 hover:bg-blue-50 text-sm flex items-center justify-between">
+                                        class="w-full text-left px-3 py-3 hover:bg-blue-50 text-base flex items-center justify-between">
                                     <span x-text="p.name"></span>
                                     <span class="text-xs text-gray-400"
                                           x-text="'$'+formatNum(p.base_price)+' / '+(p.sale_unit==='KG'?'kg':'und')"></span>
@@ -177,7 +177,7 @@
                         <template x-for="cat in categories" :key="cat.id">
                             <button type="button"
                                     @click="activeCategory && activeCategory.id===cat.id ? clearCategory() : selectCategory(cat)"
-                                    class="px-3 py-1.5 rounded-full text-sm font-semibold border transition-colors"
+                                    class="px-4 py-2.5 rounded-full text-sm font-semibold border transition-colors"
                                     :class="activeCategory && activeCategory.id===cat.id
                                         ? catColor(cat.colorIndex,'active')
                                         : catColor(cat.colorIndex,'chip')"
@@ -192,7 +192,7 @@
                                x-ref="catFilterInput"
                                placeholder="Filtrar en esta categoría…"
                                autocomplete="off"
-                               class="border rounded px-3 py-1.5 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-300">
+                               class="border rounded px-3 py-2.5 text-base w-full focus:outline-none focus:ring-2 focus:ring-blue-300">
                     </div>
 
                     {{-- Product chips grid --}}
@@ -200,9 +200,9 @@
                          class="grid grid-cols-2 sm:grid-cols-3 gap-2">
                         <template x-for="p in filteredProducts" :key="'pc-'+p.id">
                             <button type="button" @click="selectPending(p)"
-                                    class="text-left px-3 py-2 rounded-lg border text-sm transition-colors hover:shadow-sm"
+                                    class="text-left px-3 py-3 rounded-lg border text-sm transition-colors hover:shadow-sm"
                                     :class="catColor(activeCategory.colorIndex,'chip')">
-                                <div class="font-medium leading-tight truncate" x-text="p.name"></div>
+                                <div class="font-medium leading-snug truncate" x-text="p.name"></div>
                                 <div class="text-xs mt-0.5 opacity-70"
                                      x-text="'$'+formatNum(p.base_price)+' / '+(p.sale_unit==='KG'?'kg':'und')"></div>
                             </button>
@@ -228,7 +228,7 @@
                                            @keydown.enter.prevent="confirmPending()"
                                            @keydown.escape.prevent="cancelPending()"
                                            placeholder="0"
-                                           class="border-2 border-blue-400 rounded px-3 py-2 text-lg text-center w-28 focus:outline-none focus:border-blue-600">
+                                           class="border-2 border-blue-400 rounded px-3 py-3 text-xl text-center w-32 focus:outline-none focus:border-blue-600">
                                     <span class="text-gray-500 font-medium">g</span>
                                     <span class="text-xs text-gray-400"
                                           x-show="pendingKg > 0"
@@ -242,7 +242,7 @@
                                            @keydown.enter.prevent="confirmPending()"
                                            @keydown.escape.prevent="cancelPending()"
                                            placeholder="1"
-                                           class="border-2 border-blue-400 rounded px-3 py-2 text-lg text-center w-28 focus:outline-none focus:border-blue-600">
+                                           class="border-2 border-blue-400 rounded px-3 py-3 text-xl text-center w-32 focus:outline-none focus:border-blue-600">
                                     <span class="text-gray-500 font-medium">und</span>
                                 </div>
                             </div>
@@ -250,11 +250,11 @@
                                 <button type="button" @click="confirmPending()"
                                         :disabled="!pendingValid"
                                         :class="pendingValid ? 'bg-blue-600 hover:bg-blue-700 text-white' : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
-                                        class="px-4 py-2 rounded-lg font-semibold text-sm transition-colors">
+                                        class="px-6 py-3 rounded-lg font-semibold text-base min-w-20 transition-colors">
                                     OK
                                 </button>
                                 <button type="button" @click="cancelPending()"
-                                        class="px-3 py-2 rounded-lg text-sm text-gray-500 hover:text-gray-700">
+                                        class="px-4 py-3 rounded-lg text-base text-gray-500 hover:text-gray-700">
                                     Cancelar
                                 </button>
                             </div>
@@ -346,7 +346,7 @@
                             <div class="flex items-center justify-between gap-1">
                                 <span class="text-sm font-medium truncate" x-text="item.product_name"></span>
                                 <button type="button" @click="removeItem(idx)"
-                                        class="text-red-400 hover:text-red-600 text-lg leading-none shrink-0">&times;</button>
+                                        class="text-red-400 hover:text-red-600 text-xl leading-none shrink-0 p-2 min-w-9 min-h-9 flex items-center justify-center">&times;</button>
                             </div>
 
                             {{-- Row 2: qty display + price input + total --}}
@@ -361,7 +361,7 @@
                                     <input type="number" x-model.number="item.unit_price"
                                            @input="computeLineTotal(item)"
                                            min="0" step="100" placeholder="0"
-                                           class="border rounded px-2 py-1 text-xs text-right w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                           class="border rounded px-2 py-2 text-sm text-right w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                                            :class="item.unit_price !== item.base_price ? 'border-purple-400 text-purple-700' : ''">
                                     <span x-show="item.unit_price !== item.base_price"
                                           class="text-purple-500 text-xs font-bold" title="Precio modificado">*</span>
@@ -386,9 +386,9 @@
                             <span class="text-gray-600">Domicilio</span>
                             <span class="font-mono">$<span x-text="formatNum(deliveryFee)"></span></span>
                         </div>
-                        <div class="flex justify-between text-base font-bold border-t pt-2 mt-2">
+                        <div class="flex justify-between text-xl font-bold border-t pt-2 mt-2">
                             <span>TOTAL</span>
-                            <span class="font-mono text-green-700">$<span x-text="formatNum(total)"></span></span>
+                            <span class="font-mono text-green-700 text-2xl">$<span x-text="formatNum(total)"></span></span>
                         </div>
                     </div>
                 </div>
@@ -400,23 +400,23 @@
                     {{-- Quick-add chips --}}
                     <div class="flex gap-2 flex-wrap mb-3">
                         <button type="button" @click="addPaymentMethod('NEQUI')"
-                                class="px-3 py-1.5 rounded-full text-xs font-semibold bg-pink-100 text-pink-700 border border-pink-300 hover:bg-pink-500 hover:text-white hover:border-pink-500 transition-colors">
+                                class="px-4 py-2.5 rounded-full text-sm font-semibold bg-pink-100 text-pink-700 border border-pink-300 hover:bg-pink-500 hover:text-white hover:border-pink-500 transition-colors">
                             Nequi
                         </button>
                         <button type="button" @click="addPaymentMethod('DAVIPLATA')"
-                                class="px-3 py-1.5 rounded-full text-xs font-semibold bg-red-100 text-red-700 border border-red-300 hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors">
+                                class="px-4 py-2.5 rounded-full text-sm font-semibold bg-red-100 text-red-700 border border-red-300 hover:bg-red-500 hover:text-white hover:border-red-500 transition-colors">
                             Daviplata
                         </button>
                         <button type="button" @click="addPaymentMethod('BREB')"
-                                class="px-3 py-1.5 rounded-full text-xs font-semibold bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-colors">
+                                class="px-4 py-2.5 rounded-full text-sm font-semibold bg-purple-100 text-purple-700 border border-purple-300 hover:bg-purple-500 hover:text-white hover:border-purple-500 transition-colors">
                             Bre-B
                         </button>
                         <button type="button" @click="addPaymentMethod('CARD')"
-                                class="px-3 py-1.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-colors">
+                                class="px-4 py-2.5 rounded-full text-sm font-semibold bg-blue-100 text-blue-700 border border-blue-300 hover:bg-blue-500 hover:text-white hover:border-blue-500 transition-colors">
                             Tarjeta
                         </button>
                         <button type="button" @click="addPaymentMethod('CASH')"
-                                class="px-3 py-1.5 rounded-full text-xs font-semibold bg-green-100 text-green-700 border border-green-300 hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors">
+                                class="px-4 py-2.5 rounded-full text-sm font-semibold bg-green-100 text-green-700 border border-green-300 hover:bg-green-500 hover:text-white hover:border-green-500 transition-colors">
                             Efectivo
                         </button>
                     </div>
@@ -440,23 +440,23 @@
                             <input type="number" x-model.number="pay.amount" min="0" step="1"
                                    data-payment-amount
                                    placeholder="0"
-                                   class="border rounded px-2 py-1.5 text-sm flex-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-400">
+                                   class="border rounded px-2 py-3 text-base flex-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-400">
 
                             <button type="button" @click="removePayment(pidx)"
                                     x-show="payments.length > 1"
-                                    class="text-red-400 hover:text-red-600 text-lg leading-none shrink-0">&times;</button>
+                                    class="text-red-400 hover:text-red-600 text-xl leading-none shrink-0 p-2 min-w-9 min-h-9 flex items-center justify-center">&times;</button>
                         </div>
                     </template>
 
                     {{-- Balance summary --}}
-                    <div class="border-t pt-2 mt-2 space-y-1 text-sm">
-                        <div class="flex justify-between">
+                    <div class="border-t pt-2 mt-2 space-y-1">
+                        <div class="flex justify-between text-sm">
                             <span class="text-gray-600">Total pagado</span>
                             <span class="font-mono" :class="overpay ? 'text-red-600 font-bold' : ''">
                                 $<span x-text="formatNum(paidAmount)"></span>
                             </span>
                         </div>
-                        <div class="flex justify-between font-semibold"
+                        <div class="flex justify-between text-base font-bold"
                              :class="balance > 0 ? 'text-yellow-700' : 'text-green-700'">
                             <span>Saldo</span>
                             <span class="font-mono">$<span x-text="formatNum(balance)"></span></span>
@@ -475,7 +475,7 @@
                             : (canSubmit
                                 ? (balance > 0 ? 'bg-yellow-600 hover:bg-yellow-700 text-white' : 'bg-green-600 hover:bg-green-700 text-white')
                                 : 'bg-gray-300 text-gray-500 cursor-not-allowed')"
-                        class="w-full py-3 rounded-lg font-bold text-base transition-colors shadow">
+                        class="w-full py-4 rounded-lg font-bold text-lg transition-colors shadow">
                     <span x-show="submitting">Procesando…</span>
                     <span x-show="!submitting && !canSubmit && items.length === 0">Agrega al menos un producto</span>
                     <span x-show="!submitting && !canSubmit && items.length > 0 && overpay">Pago inválido — ajusta los montos</span>
@@ -501,11 +501,11 @@
          MOBILE sticky bottom bar
          ===================================================================== --}}
     <div class="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t shadow-lg px-4 py-3 flex items-center gap-3 z-30">
-        <div class="flex-1 text-sm">
+        <div class="flex-1 text-base">
             <span class="text-gray-500">Total:</span>
             <span class="font-bold text-green-700 font-mono ml-1">$<span x-text="formatNum(total)"></span></span>
         </div>
-        <div class="text-sm" x-show="paidAmount > 0 || balance > 0">
+        <div class="text-base" x-show="paidAmount > 0 || balance > 0">
             <span class="text-gray-500">Saldo:</span>
             <span class="font-semibold font-mono ml-1"
                   :class="balance > 0 ? 'text-yellow-700' : 'text-green-700'"
@@ -513,7 +513,7 @@
         </div>
         <button type="button" @click="activeTab='pagos'"
                 x-show="activeTab !== 'pagos'"
-                class="px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-semibold">
+                class="px-4 py-3 bg-blue-600 text-white rounded-lg text-sm font-semibold">
             Ver pagos →
         </button>
     </div>
