@@ -466,21 +466,23 @@ class EscPosTicketRenderer
 
         $sections = $payload['sections'] ?? null;
 
+        // Single column header — printed once regardless of grouping mode
+        $out .= $header;
+        $out .= $this->divider('-', self::WIDTH_B);
+
         if ($sections !== null) {
-            // Grouped mode: section header + rows per group
+            $first = true;
             foreach ($sections as $section) {
-                $out .= $this->divider('-', self::WIDTH_B);
+                if (!$first) {
+                    $out .= self::LF;   // blank line between sections
+                }
+                $first = false;
                 $out .= self::BOLD_ON . $this->enc($section['label']) . self::BOLD_OFF . self::LF;
-                $out .= $header;
-                $out .= $this->divider('-', self::WIDTH_B);
                 foreach ($section['invoices'] as $inv) {
                     $out .= $renderRow($inv);
                 }
             }
         } else {
-            // Flat mode
-            $out .= $header;
-            $out .= $this->divider('-', self::WIDTH_B);
             foreach ($invoices as $inv) {
                 $out .= $renderRow($inv);
             }
