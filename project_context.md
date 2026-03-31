@@ -1,6 +1,6 @@
 # Don David Software — Project Context
 
-**Last updated:** 2026-03-30
+**Last updated:** 2026-03-30 (Phase 2)
 **Business:** Carnicería Don David · Plaza de Paloquemao · Bogotá, Colombia
 **Status:** MVP functional
 
@@ -12,7 +12,7 @@
 - Sales channels: in-person and WhatsApp/phone orders.
 - Payment methods accepted: Cash, Card, Nequi, Daviplata, Bre-B (bank transfer). Non-cash payments require verification in the corresponding app.
 - Electronic invoicing (FE): only on customer request, submitted manually via the DIAN portal. DIAN API integration is out of scope.
-- Accounts receivable (cartera): frequent customers (restaurants) may pay partially or later. The system supports partial payments against specific invoices.
+- Accounts receivable (cartera): frequent customers (restaurants) may pay partially or later. The system supports partial payments (invoice-level abonos), consolidated FIFO payments across multiple invoices, customer credit balance (saldo a favor), and day/week invoice grouping. A thermal "cobro" summary ticket can be printed per customer.
 - No inventory management — out of scope.
 
 ---
@@ -228,3 +228,5 @@
 | 2026-03-16 | SVG logo support (2 MB, XSS-sanitized), configurable header color (10 swatches, live preview), hamburger menu (`< 1024 px`), ticket printing overhaul (logo bitmap, Font B body, unit price column, 16 cm minimum, footer placement, column widths) |
 | 2026-03-25 | Marquillas modal + `renderMarquilla()`, ticket fixes (logo on quick sale, word-wrap, column widths, totals WIDTH_B), FE auto-print bug removed, FE list ordering (PENDING first), invoices list cleanup (removed Saldo/FE columns, added Company column) |
 | 2026-03-30 | Touch-first UI audit + optimization — min 44px tap targets across all views; `/sales/new` priority (payment chips, qty panel, finalize button, TOTAL hierarchy, remove buttons); filter chips in invoices/customers/reports |
+| 2026-03-30 | Cartera Phase 1 — customer-grouped index, `/cartera/{customer}` detail page, `CustomerPayment` model + migration, FIFO consolidated payment service (`CustomerPaymentService`), `customers.credit_balance` (saldo a favor), 3 new migrations |
+| 2026-03-30 | Cartera Phase 2 — day/week invoice grouping (`?group=day\|week`), thermal "sacar el cobro" ticket (`renderCarteraResumen()`), print button on customer detail page |

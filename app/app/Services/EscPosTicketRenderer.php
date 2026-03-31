@@ -399,6 +399,100 @@ class EscPosTicketRenderer
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Public: render "sacar el cobro" cartera summary ticket
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Render a collection-summary ticket for a customer's pending invoices.
+     *
+     * Payload:
+     *   shop:     [name, address, phone, nit, logo_path, footer]
+     *   customer: [name, business_name]
+     *   invoices: array of [consecutive, date (d/m/Y), total, balance]
+     *   totalDebt:     string (sum of invoice balances)
+     *   creditBalance: string
+     *   netAmount:     string (totalDebt - creditBalance)
+     *   printDate:     string (dd/mm/yyyy HH:mm)
+     */
+    public function renderCarteraResumen(array $payload): string
+    {
+        $out      = self::INIT . self::FONT_B;
+        $shop     = $payload['shop'];
+        $customer = $payload['customer'];
+        $invoices = $payload['invoices'];
+
+        // ── Logo ─────────────────────────────────────────────────────────────
+        $out .= $this->renderLogo($shop['logo_path'] ?? '');
+
+        // ── Shop header ───────────────────────────────────────────────────────
+        $out .= self::FONT_A . self::ALIGN_CENTER;
+        $out .= self::BOLD_ON . $this->enc(mb_strtoupper($shop['name'])) . self::LF . self::BOLD_OFF;
+        $out .= self::FONT_B;
+        foreach (explode(self::LF, wordwrap($this->enc($shop['address']), self::WIDTH_A, self::LF, true)) as $line) {
+            $out .= $line . self::LF;
+        }
+        if ($shop['phone']) $out .= 'Tel: ' . $this->enc($shop['phone']) . self::LF;
+        if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
+        $out .= $this->divider('=', self::WIDTH_A);
+
+        // ── Ticket title & date ───────────────────────────────────────────────
+        $out .= self::ALIGN_LEFT;
+        $out .= self::FONT_A . self::BOLD_ON . 'COBRO' . self::BOLD_OFF . self::FONT_B
+              . '  ' . $payload['printDate'] . self::LF;
+
+        // ── Customer ──────────────────────────────────────────────────────────
+        $out .= $this->divider('-', self::WIDTH_B);
+        $out .= 'Cliente: ' . $this->enc($customer['name']) . self::LF;
+        if (!empty($customer['business_name'])) {
+            $out .= 'Empresa: ' . $this->enc($customer['business_name']) . self::LF;
+        }
+        $out .= $this->divider('=', self::WIDTH_B);
+
+        // ── Invoice table header ──────────────────────────────────────────────
+        // Cols (Font B, 56): consec(6) + date(9) + total(right,19) + balance(right,19) = 53
+        $out .= $this->pad('#FACT', 6)
+              . $this->pad(' FECHA', 10)
+              . $this->padL('TOTAL', 19)
+              . $this->padL('SALDO', 18)
+              . self::LF;
+        $out .= $this->divider('-', self::WIDTH_B);
+
+        // ── Invoice rows ──────────────────────────────────────────────────────
+        foreach ($invoices as $inv) {
+            $consec  = $this->pad('#' . $inv['consecutive'], 6);
+            $date    = $this->pad(' ' . $inv['date'], 10);
+            $total   = $this->padL($this->cop($inv['total']),   19);
+            $balance = $this->padL($this->cop($inv['balance']), 18);
+            $out    .= $this->enc($consec) . $date . $total . $balance . self::LF;
+        }
+        $out .= $this->divider('=', self::WIDTH_B);
+
+        // ── Totals ────────────────────────────────────────────────────────────
+        $out .= $this->twoCol('Deuda total:', $this->cop($payload['totalDebt']), self::WIDTH_B);
+        if (bccomp($payload['creditBalance'], '0', 2) > 0) {
+            $out .= $this->twoCol('Saldo a favor:', $this->cop($payload['creditBalance']), self::WIDTH_B);
+        }
+        $out .= self::BOLD_ON;
+        $out .= $this->twoCol('NETO A COBRAR:', $this->cop($payload['netAmount']), self::WIDTH_B);
+        $out .= self::BOLD_OFF;
+        $out .= $this->divider('=', self::WIDTH_B);
+
+        // ── Footer ────────────────────────────────────────────────────────────
+        if (!empty($shop['footer'])) {
+            $out .= self::FONT_B . self::ALIGN_CENTER;
+            foreach (explode(self::LF, wordwrap($this->enc($shop['footer']), self::WIDTH_B, self::LF, true)) as $line) {
+                $out .= $line . self::LF;
+            }
+            $out .= $this->divider('=', self::WIDTH_B);
+        }
+
+        $out .= self::LF . self::LF . self::LF;
+        $out .= self::CUT;
+
+        return $out;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Public: render one marquilla (product label) — includes INIT + CUT
     // ─────────────────────────────────────────────────────────────────────────
     public function renderMarquilla(array $shop, string $labelText): string

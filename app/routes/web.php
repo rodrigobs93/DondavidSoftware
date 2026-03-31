@@ -53,6 +53,8 @@ Route::middleware(['auth', 'lan'])->group(function () {
     Route::get('/cartera/{customer}', [CarteraController::class, 'customer'])->name('cartera.customer')->where('customer', '[0-9]+');
     // Invoice-level abono (existing, unchanged)
     Route::post('/cartera/{invoice}/payments', [CarteraController::class, 'addPayment'])->name('cartera.payments');
+    // Print "sacar el cobro" thermal summary
+    Route::post('/cartera/{customer}/print', [CarteraController::class, 'printResumen'])->name('cartera.customer.print')->where('customer', '[0-9]+');
 
     // FE Pending
     Route::get('/fe-pending', [FePendingController::class, 'index'])->name('fe-pending.index');

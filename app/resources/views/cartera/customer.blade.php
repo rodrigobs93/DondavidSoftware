@@ -16,10 +16,24 @@
 
 {{-- Customer summary card --}}
 <div class="bg-white rounded-lg shadow p-5 mb-5">
-    <h1 class="text-xl font-bold text-gray-800">{{ $customer->name }}</h1>
-    @if($customer->business_name)
-        <div class="text-gray-500 text-sm mb-3">{{ $customer->business_name }}</div>
-    @endif
+    <div class="flex items-start justify-between gap-3 mb-3">
+        <div>
+            <h1 class="text-xl font-bold text-gray-800">{{ $customer->name }}</h1>
+            @if($customer->business_name)
+                <div class="text-gray-500 text-sm">{{ $customer->business_name }}</div>
+            @endif
+        </div>
+        {{-- Print button --}}
+        @if($invoices->isNotEmpty())
+        <form method="POST" action="{{ route('cartera.customer.print', $customer) }}" class="shrink-0">
+            @csrf
+            <button type="submit"
+                    class="pos-btn pos-btn-secondary text-sm gap-1.5">
+                🖨 Imprimir cobro
+            </button>
+        </form>
+        @endif
+    </div>
 
     <div class="grid grid-cols-3 gap-4 mt-3">
         <div class="text-center p-3 bg-red-50 rounded-lg border border-red-100">
@@ -44,137 +58,181 @@
 {{-- Pending invoices --}}
 @if($invoices->isNotEmpty())
 <div class="bg-white rounded-lg shadow mb-5">
-    <div class="px-5 py-3 border-b">
+    <div class="px-5 py-3 border-b flex items-center justify-between gap-3 flex-wrap">
         <h2 class="font-semibold text-gray-700">
             Facturas pendientes
             <span class="text-gray-400 font-normal text-sm">({{ $invoices->count() }})</span>
         </h2>
-    </div>
 
-    {{-- Mobile cards --}}
-    <div class="sm:hidden divide-y divide-gray-100 p-4 space-y-3">
-        @foreach($invoices as $invoice)
-        <div x-data="{ showAbono: false }" class="pt-3 first:pt-0">
-            <div class="flex items-start justify-between">
-                <div>
-                    <div class="flex items-center gap-2">
-                        <a href="{{ route('invoices.show', $invoice) }}"
-                           class="font-mono font-bold text-blue-600 hover:text-blue-800">
-                            #{{ $invoice->consecutive }}
-                        </a>
-                        <span class="text-sm text-gray-500">
-                            {{ $invoice->invoice_date->format('d/m/Y') }}
-                        </span>
-                        <span class="{{ $invoice->status === 'PARTIAL' ? 'badge-partial' : 'badge-pending' }}">
-                            {{ $invoice->status === 'PARTIAL' ? 'PARCIAL' : 'PENDIENTE' }}
-                        </span>
-                    </div>
-                    <div class="flex gap-3 text-sm mt-1">
-                        <span class="text-gray-500">Total: <strong>{{ $fmt($invoice->total) }}</strong></span>
-                        <span class="text-green-600">Pagado: <strong>{{ $fmt($invoice->paid_amount) }}</strong></span>
-                        <span class="text-yellow-700 font-semibold">Saldo: {{ $fmt($invoice->balance) }}</span>
-                    </div>
-                </div>
-                <button type="button" @click="showAbono = !showAbono"
-                        class="pos-btn pos-btn-success text-sm shrink-0">
-                    <span x-show="!showAbono">+ Abonar</span>
-                    <span x-show="showAbono">Cancelar</span>
-                </button>
-            </div>
-
-            <div x-show="showAbono" x-cloak class="mt-3 pt-3 border-t border-gray-100">
-                <form method="POST" action="{{ route('cartera.payments', $invoice) }}">
-                    @csrf
-                    <div class="space-y-2">
-                        <select name="method" class="border rounded px-3 py-2.5 text-base w-full">
-                            @foreach($paymentMethods as $key => $label)
-                                <option value="{{ $key }}">{{ $label }}</option>
-                            @endforeach
-                        </select>
-                        <input type="number" name="amount" placeholder="Monto a abonar"
-                               min="0.01" step="0.01" max="{{ $invoice->balance }}"
-                               class="border rounded px-3 py-2.5 text-base w-full" required>
-                        <input type="text" name="notes" placeholder="Notas (opcional)"
-                               class="border rounded px-3 py-2.5 text-base w-full">
-                        <button class="w-full pos-btn pos-btn-success justify-center py-3">
-                            Registrar abono — {{ $fmt($invoice->balance) }} máx.
-                        </button>
-                    </div>
-                    @error('amount')
-                        <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
-                    @enderror
-                </form>
-            </div>
+        {{-- Grouping toggle --}}
+        <div class="flex items-center gap-1 text-sm">
+            <span class="text-gray-400 mr-1 hidden sm:inline">Agrupar:</span>
+            @foreach(['none' => 'Sin agrupar', 'day' => 'Por día', 'week' => 'Por semana'] as $key => $label)
+                <a href="{{ request()->fullUrlWithQuery(['group' => $key]) }}"
+                   class="px-3 py-1.5 rounded-full border text-sm font-medium transition-colors
+                          {{ $group === $key
+                              ? 'bg-blue-500 text-white border-blue-500'
+                              : 'bg-white text-gray-600 border-gray-300 hover:border-blue-300' }}">
+                    {{ $label }}
+                </a>
+            @endforeach
         </div>
-        @endforeach
     </div>
 
-    {{-- Desktop table --}}
-    <div class="hidden sm:block overflow-x-auto">
-        <table class="pos-table">
-            <thead>
-                <tr>
-                    <th>#</th>
-                    <th>Fecha</th>
-                    <th class="text-right">Total</th>
-                    <th class="text-right">Pagado</th>
-                    <th class="text-right">Saldo</th>
-                    <th>Estado</th>
-                    <th></th>
-                </tr>
-            </thead>
-            <tbody>
-                @foreach($invoices as $invoice)
-                <tr x-data="{ showAbono: false }">
-                    <td>
-                        <a href="{{ route('invoices.show', $invoice) }}"
-                           class="font-mono font-bold text-blue-600 hover:text-blue-800">
-                            #{{ $invoice->consecutive }}
-                        </a>
-                    </td>
-                    <td class="text-sm text-gray-600">{{ $invoice->invoice_date->format('d/m/Y') }}</td>
-                    <td class="text-right font-mono text-sm">{{ $fmt($invoice->total) }}</td>
-                    <td class="text-right font-mono text-sm text-green-700">{{ $fmt($invoice->paid_amount) }}</td>
-                    <td class="text-right font-mono text-sm font-semibold text-yellow-700">{{ $fmt($invoice->balance) }}</td>
-                    <td>
-                        <span class="{{ $invoice->status === 'PARTIAL' ? 'badge-partial' : 'badge-pending' }}">
-                            {{ $invoice->status === 'PARTIAL' ? 'PARCIAL' : 'PENDIENTE' }}
-                        </span>
-                    </td>
-                    <td class="text-right">
-                        <button type="button" @click="showAbono = !showAbono"
-                                class="pos-btn pos-btn-success text-sm">
-                            <span x-show="!showAbono">+ Abonar</span>
-                            <span x-show="showAbono">Cancelar</span>
-                        </button>
-                    </td>
-                </tr>
-                <tr x-show="showAbono" x-cloak>
-                    <td colspan="7" class="bg-yellow-50 px-4 py-3">
-                        <form method="POST" action="{{ route('cartera.payments', $invoice) }}"
-                              class="flex gap-2 flex-wrap items-end">
-                            @csrf
-                            <select name="method" class="border rounded px-3 py-2.5 text-base">
+    @php
+        // Prepare sections: either grouped or single flat section
+        if ($groupedInvoices !== null) {
+            $sections = $groupedInvoices->map(function ($group, $key) {
+                if (str_contains($key, '-W')) {
+                    [$yr, $wk] = explode('-W', $key);
+                    $label = "Semana $wk / $yr";
+                } else {
+                    $label = ucfirst(\Carbon\Carbon::parse($key)->locale('es')->isoFormat('dddd D [de] MMMM YYYY'));
+                }
+                return ['label' => $label, 'invoices' => $group];
+            });
+        } else {
+            $sections = collect([['label' => null, 'invoices' => $invoices]]);
+        }
+    @endphp
+
+    @foreach($sections as $section)
+        {{-- Group header (only when grouping active) --}}
+        @if($section['label'])
+        <div class="px-5 py-2 bg-gray-50 border-b border-t text-sm font-semibold text-gray-600 flex items-center justify-between">
+            <span>{{ $section['label'] }}</span>
+            <span class="font-mono text-gray-500 text-xs font-normal">
+                {{ $section['invoices']->count() }} factura{{ $section['invoices']->count() !== 1 ? 's' : '' }}
+                — {{ $fmt($section['invoices']->sum('balance')) }}
+            </span>
+        </div>
+        @endif
+
+        {{-- Mobile cards --}}
+        <div class="sm:hidden divide-y divide-gray-100 p-4 space-y-3">
+            @foreach($section['invoices'] as $invoice)
+            <div x-data="{ showAbono: false }" class="pt-3 first:pt-0">
+                <div class="flex items-start justify-between">
+                    <div>
+                        <div class="flex items-center gap-2">
+                            <a href="{{ route('invoices.show', $invoice) }}"
+                               class="font-mono font-bold text-blue-600 hover:text-blue-800">
+                                #{{ $invoice->consecutive }}
+                            </a>
+                            <span class="text-sm text-gray-500">
+                                {{ $invoice->invoice_date->format('d/m/Y') }}
+                            </span>
+                            <span class="{{ $invoice->status === 'PARTIAL' ? 'badge-partial' : 'badge-pending' }}">
+                                {{ $invoice->status === 'PARTIAL' ? 'PARCIAL' : 'PENDIENTE' }}
+                            </span>
+                        </div>
+                        <div class="flex gap-3 text-sm mt-1">
+                            <span class="text-gray-500">Total: <strong>{{ $fmt($invoice->total) }}</strong></span>
+                            <span class="text-green-600">Pagado: <strong>{{ $fmt($invoice->paid_amount) }}</strong></span>
+                            <span class="text-yellow-700 font-semibold">Saldo: {{ $fmt($invoice->balance) }}</span>
+                        </div>
+                    </div>
+                    <button type="button" @click="showAbono = !showAbono"
+                            class="pos-btn pos-btn-success text-sm shrink-0">
+                        <span x-show="!showAbono">+ Abonar</span>
+                        <span x-show="showAbono">Cancelar</span>
+                    </button>
+                </div>
+
+                <div x-show="showAbono" x-cloak class="mt-3 pt-3 border-t border-gray-100">
+                    <form method="POST" action="{{ route('cartera.payments', $invoice) }}">
+                        @csrf
+                        <div class="space-y-2">
+                            <select name="method" class="border rounded px-3 py-2.5 text-base w-full">
                                 @foreach($paymentMethods as $key => $label)
                                     <option value="{{ $key }}">{{ $label }}</option>
                                 @endforeach
                             </select>
-                            <input type="number" name="amount" placeholder="Monto"
+                            <input type="number" name="amount" placeholder="Monto a abonar"
                                    min="0.01" step="0.01" max="{{ $invoice->balance }}"
-                                   class="border rounded px-3 py-2.5 text-base w-36" required>
+                                   class="border rounded px-3 py-2.5 text-base w-full" required>
                             <input type="text" name="notes" placeholder="Notas (opcional)"
-                                   class="border rounded px-3 py-2.5 text-base flex-1">
-                            <button class="pos-btn pos-btn-success">Registrar abono</button>
-                        </form>
+                                   class="border rounded px-3 py-2.5 text-base w-full">
+                            <button class="w-full pos-btn pos-btn-success justify-center py-3">
+                                Registrar abono — {{ $fmt($invoice->balance) }} máx.
+                            </button>
+                        </div>
                         @error('amount')
                             <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
                         @enderror
-                    </td>
-                </tr>
-                @endforeach
-            </tbody>
-        </table>
-    </div>
+                    </form>
+                </div>
+            </div>
+            @endforeach
+        </div>
+
+        {{-- Desktop table --}}
+        <div class="hidden sm:block overflow-x-auto">
+            <table class="pos-table">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Fecha</th>
+                        <th class="text-right">Total</th>
+                        <th class="text-right">Pagado</th>
+                        <th class="text-right">Saldo</th>
+                        <th>Estado</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach($section['invoices'] as $invoice)
+                    <tr x-data="{ showAbono: false }">
+                        <td>
+                            <a href="{{ route('invoices.show', $invoice) }}"
+                               class="font-mono font-bold text-blue-600 hover:text-blue-800">
+                                #{{ $invoice->consecutive }}
+                            </a>
+                        </td>
+                        <td class="text-sm text-gray-600">{{ $invoice->invoice_date->format('d/m/Y') }}</td>
+                        <td class="text-right font-mono text-sm">{{ $fmt($invoice->total) }}</td>
+                        <td class="text-right font-mono text-sm text-green-700">{{ $fmt($invoice->paid_amount) }}</td>
+                        <td class="text-right font-mono text-sm font-semibold text-yellow-700">{{ $fmt($invoice->balance) }}</td>
+                        <td>
+                            <span class="{{ $invoice->status === 'PARTIAL' ? 'badge-partial' : 'badge-pending' }}">
+                                {{ $invoice->status === 'PARTIAL' ? 'PARCIAL' : 'PENDIENTE' }}
+                            </span>
+                        </td>
+                        <td class="text-right">
+                            <button type="button" @click="showAbono = !showAbono"
+                                    class="pos-btn pos-btn-success text-sm">
+                                <span x-show="!showAbono">+ Abonar</span>
+                                <span x-show="showAbono">Cancelar</span>
+                            </button>
+                        </td>
+                    </tr>
+                    <tr x-show="showAbono" x-cloak>
+                        <td colspan="7" class="bg-yellow-50 px-4 py-3">
+                            <form method="POST" action="{{ route('cartera.payments', $invoice) }}"
+                                  class="flex gap-2 flex-wrap items-end">
+                                @csrf
+                                <select name="method" class="border rounded px-3 py-2.5 text-base">
+                                    @foreach($paymentMethods as $key => $label)
+                                        <option value="{{ $key }}">{{ $label }}</option>
+                                    @endforeach
+                                </select>
+                                <input type="number" name="amount" placeholder="Monto"
+                                       min="0.01" step="0.01" max="{{ $invoice->balance }}"
+                                       class="border rounded px-3 py-2.5 text-base w-36" required>
+                                <input type="text" name="notes" placeholder="Notas (opcional)"
+                                       class="border rounded px-3 py-2.5 text-base flex-1">
+                                <button class="pos-btn pos-btn-success">Registrar abono</button>
+                            </form>
+                            @error('amount')
+                                <p class="text-red-500 text-xs mt-1">{{ $message }}</p>
+                            @enderror
+                        </td>
+                    </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endforeach
 </div>
 @else
 <div class="bg-white rounded-lg shadow p-6 text-center text-gray-400 mb-5">

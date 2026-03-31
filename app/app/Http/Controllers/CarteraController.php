@@ -5,15 +5,20 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Payment;
+use App\Models\Setting;
 use App\Services\CustomerPaymentService;
+use App\Services\EscPosTicketRenderer;
 use App\Services\SaleService;
+use App\Services\ThermalPrinterService;
 use Illuminate\Http\Request;
 
 class CarteraController extends Controller
 {
     public function __construct(
         private SaleService            $saleService,
-        private CustomerPaymentService $customerPaymentService
+        private CustomerPaymentService $customerPaymentService,
+        private EscPosTicketRenderer   $renderer,
+        private ThermalPrinterService  $printer,
     ) {}
 
     /**
@@ -95,17 +100,68 @@ class CarteraController extends Controller
     /**
      * Customer cartera detail page.
      */
-    public function customer(Customer $customer)
+    public function customer(Customer $customer, Request $request)
     {
+        $group    = $request->input('group', 'none'); // none | day | week
         $invoices = $customer->pendingInvoices()->get();
         $totalDebt = (string) $invoices->sum('balance');
 
+        $groupedInvoices = match ($group) {
+            'day'  => $invoices->groupBy(fn($inv) => $inv->invoice_date->format('Y-m-d')),
+            'week' => $invoices->groupBy(fn($inv) => $inv->invoice_date->format('o-W')), // ISO year-week
+            default => null,
+        };
+
         return view('cartera.customer', [
-            'customer'       => $customer,
-            'invoices'       => $invoices,
-            'totalDebt'      => $totalDebt,
-            'paymentMethods' => Payment::$methods,
+            'customer'        => $customer,
+            'invoices'        => $invoices,
+            'groupedInvoices' => $groupedInvoices,
+            'group'           => $group,
+            'totalDebt'       => $totalDebt,
+            'paymentMethods'  => Payment::$methods,
         ]);
+    }
+
+    /**
+     * Print "sacar el cobro" thermal summary for a customer.
+     */
+    public function printResumen(Customer $customer)
+    {
+        $invoices     = $customer->pendingInvoices()->get();
+        $totalDebt    = (string) $invoices->sum('balance');
+        $creditBal    = (string) $customer->credit_balance;
+        $netAmount    = bcsub($totalDebt, $creditBal, 2);
+
+        $shop = Setting::shopInfo();
+
+        $invoiceRows = $invoices->map(fn($inv) => [
+            'consecutive' => $inv->consecutive,
+            'date'        => $inv->invoice_date->format('d/m/y'),
+            'total'       => (string) $inv->total,
+            'balance'     => (string) $inv->balance,
+        ])->values()->all();
+
+        $payload = [
+            'shop'          => $shop,
+            'customer'      => [
+                'name'          => $customer->name,
+                'business_name' => $customer->business_name ?? '',
+            ],
+            'invoices'      => $invoiceRows,
+            'totalDebt'     => $totalDebt,
+            'creditBalance' => $creditBal,
+            'netAmount'     => bccomp($netAmount, '0', 2) < 0 ? '0' : $netAmount,
+            'printDate'     => now()->setTimezone('America/Bogota')->format('d/m/Y H:i'),
+        ];
+
+        try {
+            $bytes = $this->renderer->renderCarteraResumen($payload);
+            $this->printer->send($bytes);
+        } catch (\Throwable $e) {
+            return back()->withErrors(['print' => 'Error al imprimir: ' . $e->getMessage()]);
+        }
+
+        return back()->with('success', 'Cobro impreso.');
     }
 
     /**
