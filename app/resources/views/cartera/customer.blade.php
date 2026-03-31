@@ -180,9 +180,12 @@
                             <th></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <template x-for="inv in section.invoices" :key="inv.id">
-                            <tr>
+
+                    {{-- One <tbody> per invoice — single root in x-for, same as mobile's <div> pattern --}}
+                    <template x-for="inv in section.invoices" :key="inv.id">
+                        <tbody>
+                            {{-- Data row --}}
+                            <tr class="hover:bg-gray-50">
                                 <td>
                                     <a :href="'/invoices/' + inv.id"
                                        class="font-mono font-bold text-blue-600 hover:text-blue-800"
@@ -199,8 +202,8 @@
                                     </button>
                                 </td>
                             </tr>
-                            {{-- Inline abono row --}}
-                            <tr x-show="inv.showAbono" x-cloak>
+                            {{-- Inline abono row — inside same tbody so inv scope is guaranteed --}}
+                            <tr x-show="inv.showAbono">
                                 <td colspan="6" class="bg-yellow-50 px-4 py-3">
                                     <div class="flex gap-2 flex-wrap items-end">
                                         <select x-model="inv.method"
@@ -227,8 +230,8 @@
                                          x-text="inv.abonoError"></div>
                                 </td>
                             </tr>
-                        </template>
-                    </tbody>
+                        </tbody>
+                    </template>
                 </table>
             </div>
         </template>
