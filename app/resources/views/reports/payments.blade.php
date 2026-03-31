@@ -40,7 +40,7 @@
     </div>
 
     {{-- Bulk action bar — appears when rows are selected --}}
-    <div x-show="selected.size > 0" x-cloak
+    <div x-show="selected.size > 0"
          class="bg-yellow-50 border border-yellow-200 rounded-lg px-4 py-2 mb-3 flex items-center gap-3">
         <span class="text-sm text-yellow-800 font-medium"
               x-text="selected.size + ' pago(s) seleccionado(s)'"></span>
@@ -59,11 +59,17 @@
     {{-- MOBILE CARDS --}}
     <div class="sm:hidden space-y-2 mb-4"
          :class="loading ? 'opacity-50 pointer-events-none' : ''">
-        <template x-for="pay in payments" :key="pay.id">
+        <template x-for="pay in payments" :key="pay._type + pay.id">
             <div class="pos-card" :class="pay.verified ? 'bg-green-50/40' : ''">
                 <div class="pos-card-row mb-1">
-                    <a :href="pay.quick_sale_id ? '/quick-sales/' + pay.quick_sale_id : '/invoices/' + pay.invoice_id"
-                       class="font-mono font-bold text-blue-600" x-text="pay.consecutive"></a>
+                    <template x-if="pay._type === 'customer_payment'">
+                        <span class="font-mono font-bold text-purple-600"
+                              x-text="'COBRO — ' + pay.customer_name"></span>
+                    </template>
+                    <template x-if="pay._type !== 'customer_payment'">
+                        <a :href="pay.quick_sale_id ? '/quick-sales/' + pay.quick_sale_id : '/invoices/' + pay.invoice_id"
+                           class="font-mono font-bold text-blue-600" x-text="pay.consecutive"></a>
+                    </template>
                     <span class="px-2 py-0.5 rounded-full text-xs font-semibold"
                           :class="pay.verified ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'"
                           x-text="pay.verified ? '✓ Verificado' : 'Pendiente'"></span>
@@ -89,7 +95,8 @@
                     <span class="pos-card-value font-semibold font-mono" x-text="formatCOP(pay.amount)"></span>
                 </div>
                 <div class="mt-2 text-right" x-show="!pay.verified">
-                    <button type="button" @click="verifySingle(pay)" class="pos-btn-primary text-sm py-2">
+                    <button type="button" @click="verifySingle(pay)"
+                            class="pos-btn-primary text-sm py-2">
                         Verificar
                     </button>
                 </div>
@@ -122,24 +129,30 @@
                 </tr>
             </thead>
             <tbody class="divide-y">
-                <template x-for="pay in payments" :key="pay.id">
+                <template x-for="pay in payments" :key="pay._type + pay.id">
                     <tr class="hover:bg-gray-50"
-                        :class="pay.verified ? 'bg-green-50/40' : ''">
+                        :class="[pay.verified ? 'bg-green-50/40' : '', pay._type === 'customer_payment' ? 'bg-purple-50/30' : '']">
 
                         {{-- Checkbox --}}
                         <td class="px-3 py-3">
                             <input type="checkbox"
-                                   :checked="selected.has(pay.id)"
-                                   @change="toggleRow(pay.id, $event.target.checked)"
+                                   :checked="selected.has(pay._type + pay.id)"
+                                   @change="toggleRow(pay._type + pay.id, pay._type, pay.id, $event.target.checked)"
                                    :disabled="pay.verified"
                                    class="rounded disabled:opacity-30">
                         </td>
 
-                        {{-- Consecutive link --}}
+                        {{-- Consecutive / label --}}
                         <td class="px-4 py-3">
-                            <a :href="pay.quick_sale_id ? '/quick-sales/' + pay.quick_sale_id : '/invoices/' + pay.invoice_id"
-                               class="font-mono font-semibold text-blue-600 hover:underline"
-                               x-text="pay.consecutive"></a>
+                            <template x-if="pay._type === 'customer_payment'">
+                                <span class="font-mono font-semibold text-purple-600"
+                                      title="Pago consolidado de cartera">COBRO</span>
+                            </template>
+                            <template x-if="pay._type !== 'customer_payment'">
+                                <a :href="pay.quick_sale_id ? '/quick-sales/' + pay.quick_sale_id : '/invoices/' + pay.invoice_id"
+                                   class="font-mono font-semibold text-blue-600 hover:underline"
+                                   x-text="pay.consecutive"></a>
+                            </template>
                         </td>
 
                         {{-- Date --}}
@@ -248,6 +261,7 @@ function paymentReport() {
         startDate:      __initPStart,
         endDate:        __initPEnd,
         selected:       new Set(),
+        selectedMeta:   new Map(),
 
         methodChips: [
             { value: '',          label: 'Todos'      },
@@ -281,8 +295,9 @@ function paymentReport() {
             const res = await fetch(`/reports/payments?${params}`, {
                 headers: { 'Accept': 'application/json' },
             });
-            this.payments  = await res.json();
-            this.selected  = new Set();
+            this.payments      = await res.json();
+            this.selected      = new Set();
+            this.selectedMeta  = new Map();
             history.replaceState({}, '', `/reports/payments${params.toString() ? '?' + params : ''}`);
             this.loading = false;
         },
@@ -295,23 +310,42 @@ function paymentReport() {
             this.endDate        = '';
             this.payments       = __initialPayments;
             this.selected       = new Set();
+            this.selectedMeta   = new Map();
             history.replaceState({}, '', '/reports/payments');
         },
 
-        toggleRow(id, checked) {
+        toggleRow(key, type, id, checked) {
             const s = new Set(this.selected);
-            checked ? s.add(id) : s.delete(id);
+            // Store composite key so we can look up type later
+            if (checked) {
+                s.add(key);
+                this.selectedMeta.set(key, { type, id });
+            } else {
+                s.delete(key);
+                this.selectedMeta.delete(key);
+            }
             this.selected = s;
         },
 
         toggleAll(checked) {
-            this.selected = checked
-                ? new Set(this.payments.filter(p => !p.verified).map(p => p.id))
-                : new Set();
+            const s    = new Set();
+            const meta = new Map();
+            if (checked) {
+                this.payments.filter(p => !p.verified).forEach(p => {
+                    const key = p._type + p.id;
+                    s.add(key);
+                    meta.set(key, { type: p._type, id: p.id });
+                });
+            }
+            this.selected     = s;
+            this.selectedMeta = meta;
         },
 
         async verifySingle(pay) {
-            const res = await fetch(`/payments/${pay.id}/verify`, {
+            const url = pay._type === 'customer_payment'
+                ? `/customer-payments/${pay.id}/verify`
+                : `/payments/${pay.id}/verify`;
+            const res = await fetch(url, {
                 method: 'PATCH',
                 headers: { 'X-CSRF-TOKEN': __csrf, 'Accept': 'application/json' },
             });
@@ -319,16 +353,25 @@ function paymentReport() {
                 const data      = await res.json();
                 pay.verified    = true;
                 pay.verified_at = data.verified_at;
-                const s = new Set(this.selected);
-                s.delete(pay.id);
+                const key = pay._type + pay.id;
+                const s   = new Set(this.selected);
+                s.delete(key);
                 this.selected = s;
+                this.selectedMeta.delete(key);
             }
         },
 
         async verifyBulk() {
-            const ids = [...this.selected];
-            if (!ids.length) return;
+            if (!this.selected.size) return;
             this.bulkLoading = true;
+
+            const ids   = [];
+            const cpIds = [];
+            for (const [, meta] of this.selectedMeta) {
+                if (meta.type === 'customer_payment') cpIds.push(meta.id);
+                else ids.push(meta.id);
+            }
+
             const res = await fetch('/payments/verify-bulk', {
                 method: 'POST',
                 headers: {
@@ -336,10 +379,9 @@ function paymentReport() {
                     'Content-Type': 'application/json',
                     'Accept':        'application/json',
                 },
-                body: JSON.stringify({ ids }),
+                body: JSON.stringify({ ids, cp_ids: cpIds }),
             });
             if (res.ok) {
-                // Re-fetch so verified_at timestamps come from the server
                 await this.search();
             }
             this.bulkLoading = false;

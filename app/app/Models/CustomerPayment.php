@@ -15,11 +15,16 @@ class CustomerPayment extends Model
         'paid_at',
         'notes',
         'registered_by_user_id',
+        'verified',
+        'verified_at',
+        'verified_by_user_id',
     ];
 
     protected $casts = [
-        'amount'  => 'decimal:2',
-        'paid_at' => 'datetime',
+        'amount'      => 'decimal:2',
+        'paid_at'     => 'datetime',
+        'verified'    => 'boolean',
+        'verified_at' => 'datetime',
     ];
 
     /** Same methods as Payment */

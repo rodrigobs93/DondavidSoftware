@@ -81,19 +81,46 @@ class CarteraController extends Controller
             ->sortByDesc('total_balance')
             ->values();
 
+        // Saldo a favor: customers with credit_balance > 0, optionally filtered by name.
+        $saldoQuery = Customer::where('credit_balance', '>', 0)->withTrashed(false);
+        if ($q !== '') {
+            $saldoQuery->where(function ($cq) use ($q) {
+                $cq->where('name', 'ilike', "%{$q}%")
+                   ->orWhere('business_name', 'ilike', "%{$q}%");
+            });
+        }
+        $saldoCustomers = $saldoQuery
+            ->orderByDesc('credit_balance')
+            ->get()
+            ->map(fn($c) => [
+                'customer' => [
+                    'id'             => $c->id,
+                    'name'           => $c->name,
+                    'business_name'  => $c->business_name ?? '',
+                    'credit_balance' => (string) $c->credit_balance,
+                ],
+            ])
+            ->values();
+
+        $globalSaldoBalance = (string) Customer::where('credit_balance', '>', 0)->sum('credit_balance');
+
         if ($request->wantsJson()) {
             return response()->json([
-                'customers'            => $grouped,
-                'global_total_balance' => $globalTotalBalance,
+                'customers'             => $grouped,
+                'global_total_balance'  => $globalTotalBalance,
+                'saldo_customers'       => $saldoCustomers,
+                'global_saldo_balance'  => $globalSaldoBalance,
             ]);
         }
 
         return view('cartera.index', [
-            'initialData'        => $grouped,
-            'globalTotalBalance' => $globalTotalBalance,
-            'q'                  => $q,
-            'startDate'          => $startDate,
-            'endDate'            => $endDate,
+            'initialData'         => $grouped,
+            'globalTotalBalance'  => $globalTotalBalance,
+            'initialSaldo'        => $saldoCustomers,
+            'globalSaldoBalance'  => $globalSaldoBalance,
+            'q'                   => $q,
+            'startDate'           => $startDate,
+            'endDate'             => $endDate,
         ]);
     }
 
@@ -106,15 +133,34 @@ class CarteraController extends Controller
         $invoices = $customer->pendingInvoices()->get();
         $totalDebt = (string) $invoices->sum('balance');
 
+        // Week grouping uses Sunday as week start (Colombia convention).
+        // Key = the Sunday date that opens the week (Y-m-d), so every invoice in the
+        // same Sun–Sat span gets the same key regardless of ISO year-week quirks.
         $groupedInvoices = match ($group) {
             'day'  => $invoices->groupBy(fn($inv) => $inv->invoice_date->format('Y-m-d')),
-            'week' => $invoices->groupBy(fn($inv) => $inv->invoice_date->format('o-W')), // ISO year-week
+            'week' => $invoices->groupBy(
+                fn($inv) => $inv->invoice_date->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->format('Y-m-d')
+            ),
             default => null,
         };
+
+        // Build a flat array for Alpine.js (JSON-serialisable).
+        $invoicesJson = $invoices->map(fn($inv) => [
+            'id'          => $inv->id,
+            'consecutive' => $inv->consecutive,
+            'date'        => $inv->invoice_date->format('d/m/Y'),
+            'total'       => (int) round((float) $inv->total),
+            'paid_amount' => (int) round((float) $inv->paid_amount),
+            'balance'     => (int) round((float) $inv->balance),
+            // week-Sunday key for client-side grouping
+            'week_key'    => $inv->invoice_date->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->format('Y-m-d'),
+            'day_key'     => $inv->invoice_date->format('Y-m-d'),
+        ])->values()->all();
 
         return view('cartera.customer', [
             'customer'        => $customer,
             'invoices'        => $invoices,
+            'invoicesJson'    => $invoicesJson,
             'groupedInvoices' => $groupedInvoices,
             'group'           => $group,
             'totalDebt'       => $totalDebt,
@@ -124,22 +170,45 @@ class CarteraController extends Controller
 
     /**
      * Print "sacar el cobro" thermal summary for a customer.
+     * Accepts ?group=none|day|week to mirror the UI grouping.
      */
-    public function printResumen(Customer $customer)
+    public function printResumen(Customer $customer, Request $request)
     {
-        $invoices     = $customer->pendingInvoices()->get();
-        $totalDebt    = (string) $invoices->sum('balance');
-        $creditBal    = (string) $customer->credit_balance;
-        $netAmount    = bcsub($totalDebt, $creditBal, 2);
+        $group    = $request->input('group', 'none');
+        $invoices = $customer->pendingInvoices()->get();
+        $totalDebt = (string) $invoices->sum('balance');
+        $creditBal = (string) $customer->credit_balance;
+        $netAmount = bcsub($totalDebt, $creditBal, 2);
 
         $shop = Setting::shopInfo();
 
-        $invoiceRows = $invoices->map(fn($inv) => [
+        $toRow = fn($inv) => [
             'consecutive' => $inv->consecutive,
             'date'        => $inv->invoice_date->format('d/m/y'),
             'total'       => (string) $inv->total,
             'balance'     => (string) $inv->balance,
-        ])->values()->all();
+        ];
+
+        // Build sections matching the UI grouping.
+        if ($group === 'day') {
+            $sections = $invoices
+                ->groupBy(fn($inv) => $inv->invoice_date->format('Y-m-d'))
+                ->map(fn($group, $key) => [
+                    'label'    => \Carbon\Carbon::parse($key)->format('d/m/Y'),
+                    'invoices' => $group->map($toRow)->values()->all(),
+                ])->values()->all();
+        } elseif ($group === 'week') {
+            $sections = $invoices
+                ->groupBy(fn($inv) => $inv->invoice_date->copy()->startOfWeek(\Carbon\Carbon::SUNDAY)->format('Y-m-d'))
+                ->map(fn($group, $key) => [
+                    'label'    => \Carbon\Carbon::parse($key)->format('d/m/Y')
+                                . ' - '
+                                . \Carbon\Carbon::parse($key)->addDays(6)->format('d/m/Y'),
+                    'invoices' => $group->map($toRow)->values()->all(),
+                ])->values()->all();
+        } else {
+            $sections = null; // flat list
+        }
 
         $payload = [
             'shop'          => $shop,
@@ -147,7 +216,8 @@ class CarteraController extends Controller
                 'name'          => $customer->name,
                 'business_name' => $customer->business_name ?? '',
             ],
-            'invoices'      => $invoiceRows,
+            'invoices'      => $invoices->map($toRow)->values()->all(),
+            'sections'      => $sections,
             'totalDebt'     => $totalDebt,
             'creditBalance' => $creditBal,
             'netAmount'     => bccomp($netAmount, '0', 2) < 0 ? '0' : $netAmount,
@@ -171,7 +241,7 @@ class CarteraController extends Controller
     {
         $validated = $request->validate([
             'method' => ['required', 'in:CASH,CARD,NEQUI,DAVIPLATA,BREB'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
+            'amount' => ['required', 'integer', 'min:1'],
             'notes'  => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -209,18 +279,33 @@ class CarteraController extends Controller
     {
         $validated = $request->validate([
             'method' => ['required', 'in:CASH,CARD,NEQUI,DAVIPLATA,BREB'],
-            'amount' => ['required', 'numeric', 'min:0.01'],
+            'amount' => ['required', 'integer', 'min:1'],
             'notes'  => ['nullable', 'string'],
         ]);
 
         if ($invoice->balance <= 0) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => 'Esta factura ya está pagada.'], 422);
+            }
             return back()->withErrors(['amount' => 'Esta factura ya está pagada.']);
         }
 
         try {
             $this->saleService->addPayment($invoice, $validated, auth()->user());
         } catch (\InvalidArgumentException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
             return back()->withErrors(['amount' => $e->getMessage()]);
+        }
+
+        if ($request->wantsJson()) {
+            $invoice->refresh();
+            return response()->json([
+                'ok'          => true,
+                'balance'     => (int) round((float) $invoice->balance),
+                'paid_amount' => (int) round((float) $invoice->paid_amount),
+            ]);
         }
 
         return back()->with('success', 'Abono registrado exitosamente.');

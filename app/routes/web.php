@@ -102,6 +102,7 @@ Route::middleware(['auth', 'lan'])->group(function () {
         // Reports
         Route::get('/reports/payments', [ReportController::class, 'payments'])->name('reports.payments');
         Route::patch('/payments/{payment}/verify', [ReportController::class, 'verifyPayment'])->name('payments.verify');
+        Route::patch('/customer-payments/{customerPayment}/verify', [ReportController::class, 'verifyCustomerPayment'])->name('customer-payments.verify');
         Route::post('/payments/verify-bulk', [ReportController::class, 'verifyBulk'])->name('payments.verify-bulk');
 
         // Backups & Settings

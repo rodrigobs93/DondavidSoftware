@@ -448,22 +448,42 @@ class EscPosTicketRenderer
         }
         $out .= $this->divider('=', self::WIDTH_B);
 
-        // ── Invoice table header ──────────────────────────────────────────────
-        // Cols (Font B, 56): consec(6) + date(9) + total(right,19) + balance(right,19) = 53
-        $out .= $this->pad('#FACT', 6)
-              . $this->pad(' FECHA', 10)
-              . $this->padL('TOTAL', 19)
-              . $this->padL('SALDO', 18)
-              . self::LF;
-        $out .= $this->divider('-', self::WIDTH_B);
+        // ── Column header ─────────────────────────────────────────────────────
+        // Cols (Font B, 56): consec(6) + date(9) + total(right,19) + balance(right,19)
+        $header = $this->pad('#FACT', 6)
+                . $this->pad(' FECHA', 10)
+                . $this->padL('TOTAL', 19)
+                . $this->padL('SALDO', 18)
+                . self::LF;
 
-        // ── Invoice rows ──────────────────────────────────────────────────────
-        foreach ($invoices as $inv) {
+        $renderRow = function (array $inv): string {
             $consec  = $this->pad('#' . $inv['consecutive'], 6);
             $date    = $this->pad(' ' . $inv['date'], 10);
             $total   = $this->padL($this->cop($inv['total']),   19);
             $balance = $this->padL($this->cop($inv['balance']), 18);
-            $out    .= $this->enc($consec) . $date . $total . $balance . self::LF;
+            return $this->enc($consec) . $date . $total . $balance . self::LF;
+        };
+
+        $sections = $payload['sections'] ?? null;
+
+        if ($sections !== null) {
+            // Grouped mode: section header + rows per group
+            foreach ($sections as $section) {
+                $out .= $this->divider('-', self::WIDTH_B);
+                $out .= self::BOLD_ON . $this->enc($section['label']) . self::BOLD_OFF . self::LF;
+                $out .= $header;
+                $out .= $this->divider('-', self::WIDTH_B);
+                foreach ($section['invoices'] as $inv) {
+                    $out .= $renderRow($inv);
+                }
+            }
+        } else {
+            // Flat mode
+            $out .= $header;
+            $out .= $this->divider('-', self::WIDTH_B);
+            foreach ($invoices as $inv) {
+                $out .= $renderRow($inv);
+            }
         }
         $out .= $this->divider('=', self::WIDTH_B);
 
