@@ -39,7 +39,12 @@
     <script>
         window.formatCOP = (val) => '$' + Math.round(parseFloat(val) || 0).toLocaleString('es-CO');
         window.formatGrams = (qty) => { const g = Math.round((parseFloat(qty) || 0) * 1000); return g > 0 ? g.toLocaleString('es-CO') + ' g' : ''; };
+        window.__touchMode = {{ \App\Models\Setting::get('touch_mode', '0') === '1' ? 'true' : 'false' }};
     </script>
+    @if(\App\Models\Setting::get('touch_mode', '0') === '1')
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/css/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/index.js"></script>
+    @endif
 </head>
 <body class="bg-gray-100 min-h-screen">
 
@@ -211,5 +216,72 @@
 
 @include('partials._quick-sale-modal')
 @include('partials._marquilla-modal')
+
+@if(\App\Models\Setting::get('touch_mode', '0') === '1')
+<div x-data="touchKeyboard()" x-show="open" x-cloak
+     class="fixed bottom-0 left-0 right-0 z-100 bg-white shadow-2xl border-t border-gray-200 p-2">
+    <div class="flex justify-end mb-1">
+        <button @click="close()"
+                class="text-xs text-gray-500 px-4 py-1.5 border rounded hover:bg-gray-50">
+            Listo ✓
+        </button>
+    </div>
+    <div id="touch-keyboard-container"></div>
+</div>
+
+<script>
+function touchKeyboard() {
+    return {
+        open: false,
+        kb: null,
+        targetEl: null,
+
+        init() {
+            document.addEventListener('focusin', (e) => {
+                const el = e.target;
+                if (!el.matches('input[data-keyboard], textarea[data-keyboard]')) return;
+                this.show(el);
+            });
+            document.addEventListener('focusout', (e) => {
+                setTimeout(() => {
+                    if (!this.$el.contains(document.activeElement)) this.close();
+                }, 150);
+            });
+        },
+
+        show(el) {
+            this.targetEl = el;
+            this.open = true;
+            const isNumeric = el.dataset.keyboard === 'numeric';
+            this.$nextTick(() => {
+                if (this.kb) { this.kb.destroy(); this.kb = null; }
+                const opts = {
+                    onChange: val => {
+                        el.value = val;
+                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                    },
+                    onKeyPress: key => {
+                        if (key === '{done}') this.close();
+                    },
+                    theme: 'hg-theme-default',
+                };
+                if (isNumeric) {
+                    opts.layout = { default: ['1 2 3', '4 5 6', '7 8 9', '{bksp} 0 {done}'] };
+                    opts.display = { '{bksp}': '⌫', '{done}': 'Listo' };
+                }
+                this.kb = new window.SimpleKeyboard.default('#touch-keyboard-container', opts);
+                this.kb.setInput(el.value ?? '');
+            });
+        },
+
+        close() {
+            this.open = false;
+            if (this.kb) { this.kb.destroy(); this.kb = null; }
+            this.targetEl = null;
+        }
+    };
+}
+</script>
+@endif
 </body>
 </html>

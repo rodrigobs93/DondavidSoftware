@@ -12,8 +12,9 @@ class BackupController extends Controller
 {
     public function index()
     {
-        $settings = Setting::pluck('value', 'key')->toArray();
-        return view('backups.index', compact('settings'));
+        $settings  = Setting::pluck('value', 'key')->toArray();
+        $touchMode = Setting::get('touch_mode', '0') === '1';
+        return view('backups.index', compact('settings', 'touchMode'));
     }
 
     public function export()
@@ -55,6 +56,7 @@ class BackupController extends Controller
         $fields = [
             'shop_name', 'shop_address', 'shop_phone', 'shop_nit',
             'invoice_footer', 'lan_ip', 'backup_path', 'thermal_printer_name',
+            'touch_mode',
         ];
 
         foreach ($fields as $field) {

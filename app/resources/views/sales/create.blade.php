@@ -50,6 +50,7 @@
                         <div class="relative flex-1">
                             <input type="text" x-model="customerSearch"
                                    x-ref="customerInput"
+                                   inputmode="text" data-keyboard="text"
                                    @input.debounce.300ms="searchCustomers()"
                                    @focus="showCustomerDropdown=true"
                                    @keydown.escape="showCustomerDropdown=false"
@@ -221,7 +222,7 @@
                             <div class="flex-1">
                                 {{-- KG: user types grams --}}
                                 <div x-show="pendingProduct?.sale_unit==='KG'" class="flex items-center gap-2">
-                                    <input type="text" inputmode="numeric"
+                                    <input type="text" inputmode="numeric" data-keyboard="numeric"
                                            x-ref="qtyInput"
                                            x-model="pendingInput"
                                            @input="onPendingGramsInput($event)"
@@ -236,7 +237,7 @@
                                 </div>
                                 {{-- UNIT --}}
                                 <div x-show="pendingProduct?.sale_unit!=='KG'" class="flex items-center gap-2">
-                                    <input type="number" inputmode="numeric" min="1" step="1"
+                                    <input type="number" inputmode="numeric" data-keyboard="numeric" min="1" step="1"
                                            x-ref="qtyInput"
                                            x-model="pendingInput"
                                            @keydown.enter.prevent="confirmPending()"
@@ -283,6 +284,7 @@
                             <div class="flex items-center gap-2">
                                 <span class="text-gray-500 text-sm">$</span>
                                 <input type="number" name="delivery_fee" x-model.number="deliveryFee"
+                                       inputmode="numeric" data-keyboard="numeric"
                                        min="0" step="500" placeholder="0"
                                        class="border rounded px-3 py-2 text-sm w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
                             </div>
@@ -360,6 +362,7 @@
                                     <span class="text-xs text-gray-400">$</span>
                                     <input type="number" x-model.number="item.unit_price"
                                            @input="computeLineTotal(item)"
+                                           inputmode="numeric" data-keyboard="numeric"
                                            min="0" step="100" placeholder="0"
                                            class="border rounded px-2 py-2 text-sm text-right w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                                            :class="item.unit_price !== item.base_price ? 'border-purple-400 text-purple-700' : ''">
@@ -438,6 +441,7 @@
                                   x-text="methodLabel(pay.method)"></span>
 
                             <input type="number" x-model.number="pay.amount" min="0" step="1"
+                                   inputmode="numeric" data-keyboard="numeric"
                                    data-payment-amount
                                    placeholder="0"
                                    class="border rounded px-2 py-3 text-base flex-1 text-right focus:outline-none focus:ring-2 focus:ring-blue-400">

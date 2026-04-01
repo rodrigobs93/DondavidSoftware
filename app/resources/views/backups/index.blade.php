@@ -183,6 +183,29 @@ $currentHeaderColor = $settings['header_color'] ?? '#111827';
             </div>
         </div>
 
+        {{-- Touch mode --}}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="font-semibold text-gray-700 mb-4">Modo Táctil</h2>
+            <form method="POST" action="{{ route('backups.settings') }}">
+                @csrf
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="hidden" name="touch_mode" value="0">
+                    <input type="checkbox" name="touch_mode" value="1"
+                           class="w-5 h-5 rounded"
+                           {{ $touchMode ? 'checked' : '' }}>
+                    <span class="text-sm text-gray-600">
+                        Mostrar teclado en pantalla al tocar un campo
+                    </span>
+                </label>
+                <p class="text-xs text-gray-400 mt-1 ml-8">
+                    Útil en terminales táctiles sin teclado físico (Windows/macOS/Linux).
+                </p>
+                <button type="submit" class="mt-3 pos-btn pos-btn-secondary text-sm">
+                    Guardar
+                </button>
+            </form>
+        </div>
+
         {{-- Backup export --}}
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="font-semibold text-gray-700 mb-2">Exportar Backup</h2>
