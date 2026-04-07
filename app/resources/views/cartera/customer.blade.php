@@ -118,10 +118,39 @@
                                     <span class="text-yellow-700 font-semibold" x-text="'Saldo: ' + fmt(inv.balance)"></span>
                                 </div>
                             </div>
-                            <button type="button" @click="inv.showAbono = !inv.showAbono"
-                                    class="pos-btn pos-btn-success text-sm shrink-0">
-                                <span x-text="inv.showAbono ? 'Cancelar' : '+ Abonar'"></span>
-                            </button>
+                            <div class="flex gap-1.5 shrink-0">
+                                <button type="button" @click="inv.showAbono = !inv.showAbono; inv.showCredit = false"
+                                        class="pos-btn pos-btn-success text-sm">
+                                    <span x-text="inv.showAbono ? 'Cancelar' : '+ Abonar'"></span>
+                                </button>
+                                <template x-if="creditBalance > 0">
+                                    <button type="button"
+                                            @click="inv.showCredit = !inv.showCredit; inv.showAbono = false; inv.creditAmount = Math.min(creditBalance, inv.balance)"
+                                            class="pos-btn pos-btn-secondary text-sm">
+                                        <span x-text="inv.showCredit ? '✕' : '💚'"></span>
+                                    </button>
+                                </template>
+                            </div>
+                        </div>
+
+                        {{-- Inline credit form --}}
+                        <div x-show="inv.showCredit" x-cloak class="mt-3 pt-3 border-t border-green-100">
+                            <div class="bg-green-50 rounded-lg px-3 py-3 space-y-2">
+                                <div class="text-xs text-green-700">
+                                    Saldo disponible: <strong x-text="fmt(creditBalance)"></strong> —
+                                    Saldo factura: <strong x-text="fmt(inv.balance)"></strong>
+                                </div>
+                                <input type="number" x-model="inv.creditAmount"
+                                       :max="Math.min(creditBalance, inv.balance)" min="1" step="1"
+                                       placeholder="Monto a aplicar"
+                                       class="border rounded px-3 py-2.5 text-base w-full">
+                                <div x-show="inv.creditError" class="text-red-500 text-xs" x-text="inv.creditError"></div>
+                                <button type="button" @click="submitCredit(inv)" :disabled="saving"
+                                        class="w-full pos-btn pos-btn-success justify-center py-3">
+                                    <span x-show="!saving">Aplicar saldo a favor</span>
+                                    <span x-show="saving">Aplicando…</span>
+                                </button>
+                            </div>
                         </div>
 
                         {{-- Inline abono form --}}
@@ -196,10 +225,43 @@
                                 <td class="text-right font-mono text-sm text-green-700" x-text="fmt(inv.paid_amount)"></td>
                                 <td class="text-right font-mono text-sm font-semibold text-yellow-700" x-text="fmt(inv.balance)"></td>
                                 <td class="text-right">
-                                    <button type="button" @click="inv.showAbono = !inv.showAbono"
-                                            class="pos-btn pos-btn-success text-sm">
-                                        <span x-text="inv.showAbono ? 'Cancelar' : '+ Abonar'"></span>
-                                    </button>
+                                    <div class="flex gap-1.5 justify-end">
+                                        <button type="button"
+                                                @click="inv.showAbono = !inv.showAbono; inv.showCredit = false"
+                                                class="pos-btn pos-btn-success text-sm">
+                                            <span x-text="inv.showAbono ? 'Cancelar' : '+ Abonar'"></span>
+                                        </button>
+                                        <template x-if="creditBalance > 0">
+                                            <button type="button"
+                                                    @click="inv.showCredit = !inv.showCredit; inv.showAbono = false; inv.creditAmount = Math.min(creditBalance, inv.balance)"
+                                                    class="pos-btn pos-btn-secondary text-sm"
+                                                    title="Pagar con saldo a favor">
+                                                <span x-text="inv.showCredit ? '✕' : '💚'"></span>
+                                            </button>
+                                        </template>
+                                    </div>
+                                </td>
+                            </tr>
+                            {{-- Inline credit row --}}
+                            <tr x-show="inv.showCredit">
+                                <td colspan="6" class="bg-green-50 px-4 py-3">
+                                    <div class="flex gap-2 flex-wrap items-end">
+                                        <div class="text-sm text-green-700 flex-1 min-w-48">
+                                            Saldo disponible: <strong x-text="fmt(creditBalance)"></strong> —
+                                            Saldo factura: <strong x-text="fmt(inv.balance)"></strong>
+                                        </div>
+                                        <input type="number" x-model="inv.creditAmount"
+                                               :max="Math.min(creditBalance, inv.balance)" min="1" step="1"
+                                               placeholder="Monto"
+                                               class="border rounded px-3 py-2.5 text-base w-36">
+                                        <button type="button" @click="submitCredit(inv)" :disabled="saving"
+                                                class="pos-btn pos-btn-success">
+                                            <span x-show="!saving">Aplicar saldo</span>
+                                            <span x-show="saving">Aplicando…</span>
+                                        </button>
+                                    </div>
+                                    <div x-show="inv.creditError" class="text-red-500 text-xs mt-1"
+                                         x-text="inv.creditError"></div>
                                 </td>
                             </tr>
                             {{-- Inline abono row — inside same tbody so inv scope is guaranteed --}}
@@ -319,11 +381,14 @@ function carteraCustomer() {
     return {
         invoices: __invoicesData.map(inv => ({
             ...inv,
-            showAbono:   false,
-            method:      'CASH',
-            abonoAmount: '',
-            notes:       '',
-            abonoError:  '',
+            showAbono:    false,
+            method:       'CASH',
+            abonoAmount:  '',
+            notes:        '',
+            abonoError:   '',
+            showCredit:   false,
+            creditAmount: Math.min(__creditBalance, inv.balance),
+            creditError:  '',
         })),
         creditBalance: __creditBalance,
         saving: false,
@@ -417,6 +482,45 @@ function carteraCustomer() {
                 }
             } catch (e) {
                 inv.abonoError = 'Error de red. Intenta de nuevo.';
+            } finally {
+                this.saving = false;
+            }
+        },
+
+        async submitCredit(inv) {
+            inv.creditError = '';
+            const max = Math.min(this.creditBalance, inv.balance);
+            const amt = parseInt(inv.creditAmount, 10);
+            if (!amt || amt < 1 || amt > max) {
+                inv.creditError = 'Monto inválido (máx: ' + this.fmt(max) + ')';
+                return;
+            }
+            this.saving = true;
+            try {
+                const res = await fetch(`/cartera/${inv.id}/apply-credit`, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRF-TOKEN':  __csrf,
+                        'Content-Type': 'application/json',
+                        'Accept':        'application/json',
+                    },
+                    body: JSON.stringify({ amount: amt }),
+                });
+                const data = await res.json();
+                if (!res.ok) {
+                    inv.creditError = data.error ?? 'Error al aplicar saldo.';
+                    return;
+                }
+                inv.balance        = data.balance;
+                inv.paid_amount    = data.paid_amount;
+                this.creditBalance = data.credit_balance;
+                inv.showCredit     = false;
+                inv.creditAmount   = '';
+                if (data.balance <= 0) {
+                    this.invoices = this.invoices.filter(i => i.id !== inv.id);
+                }
+            } catch (e) {
+                inv.creditError = 'Error de red. Intenta de nuevo.';
             } finally {
                 this.saving = false;
             }

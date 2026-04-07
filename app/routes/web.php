@@ -52,7 +52,9 @@ Route::middleware(['auth', 'lan'])->group(function () {
     // Customer detail — restrict to numeric IDs so 'customers' segment doesn't match
     Route::get('/cartera/{customer}', [CarteraController::class, 'customer'])->name('cartera.customer')->where('customer', '[0-9]+');
     // Invoice-level abono (existing, unchanged)
-    Route::post('/cartera/{invoice}/payments', [CarteraController::class, 'addPayment'])->name('cartera.payments');
+    Route::post('/cartera/{invoice}/payments', [CarteraController::class, 'addPayment'])->name('cartera.payments')->where('invoice', '[0-9]+');
+    // Apply customer credit (saldo a favor) to a specific invoice on demand
+    Route::post('/cartera/{invoice}/apply-credit', [CarteraController::class, 'applyCredit'])->name('cartera.invoice.apply-credit')->where('invoice', '[0-9]+');
     // Print "sacar el cobro" thermal summary
     Route::post('/cartera/{customer}/print', [CarteraController::class, 'printResumen'])->name('cartera.customer.print')->where('customer', '[0-9]+');
 

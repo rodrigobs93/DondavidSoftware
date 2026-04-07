@@ -173,6 +173,78 @@
         </div>
         @endif
 
+        {{-- Apply credit (saldo a favor) --}}
+        @if($invoice->balance > 0 && $invoice->customer->credit_balance > 0)
+        @php
+            $maxCredit = (int) min($invoice->balance, $invoice->customer->credit_balance);
+        @endphp
+        <div class="bg-green-50 border border-green-200 rounded-lg p-4"
+             x-data="{
+                 open: false,
+                 amount: {{ $maxCredit }},
+                 saving: false,
+                 error: '',
+                 creditBalance: {{ (int) $invoice->customer->credit_balance }},
+                 invoiceBalance: {{ (int) $invoice->balance }},
+                 async apply() {
+                     this.error = '';
+                     this.saving = true;
+                     try {
+                         const r = await fetch('{{ route('cartera.invoice.apply-credit', $invoice) }}', {
+                             method: 'POST',
+                             headers: {
+                                 'X-CSRF-TOKEN': '{{ csrf_token() }}',
+                                 'Content-Type': 'application/json',
+                                 'Accept': 'application/json',
+                             },
+                             body: JSON.stringify({ amount: this.amount }),
+                         });
+                         const d = await r.json();
+                         if (!r.ok) { this.error = d.error ?? 'Error.'; return; }
+                         this.invoiceBalance = d.balance;
+                         this.creditBalance  = d.credit_balance;
+                         this.open = false;
+                         if (d.balance <= 0) { window.location.reload(); }
+                     } catch { this.error = 'Error de red.'; }
+                     finally { this.saving = false; }
+                 }
+             }">
+            <div class="flex items-center justify-between mb-2">
+                <h2 class="font-semibold text-green-800">Pagar con saldo a favor</h2>
+                <span class="text-sm text-green-700 font-mono"
+                      x-text="'$' + creditBalance.toLocaleString('es-CO')"></span>
+            </div>
+            <div x-show="!open">
+                <p class="text-xs text-green-600 mb-2">
+                    El cliente tiene saldo a favor disponible para aplicar a esta factura.
+                </p>
+                <button @click="open = true"
+                        class="w-full pos-btn pos-btn-success justify-center">
+                    💚 Aplicar saldo a favor
+                </button>
+            </div>
+            <div x-show="open" x-cloak class="space-y-2">
+                <div class="text-sm text-green-700">
+                    Máximo aplicable:
+                    <strong x-text="'$' + Math.min(creditBalance, invoiceBalance).toLocaleString('es-CO')"></strong>
+                </div>
+                <input type="number" x-model.number="amount"
+                       :max="Math.min(creditBalance, invoiceBalance)" min="1" step="1"
+                       class="w-full border rounded px-3 py-2 text-sm">
+                <div class="flex gap-2">
+                    <button @click="apply()" :disabled="saving"
+                            class="flex-1 pos-btn pos-btn-success">
+                        <span x-show="!saving">Confirmar</span>
+                        <span x-show="saving">Aplicando…</span>
+                    </button>
+                    <button @click="open = false"
+                            class="pos-btn pos-btn-secondary">Cancelar</button>
+                </div>
+                <p x-show="error" x-cloak class="text-red-500 text-xs" x-text="error"></p>
+            </div>
+        </div>
+        @endif
+
         {{-- Print job status --}}
         <div class="bg-white rounded-lg shadow p-4">
             <h2 class="font-semibold text-gray-700 mb-2">Cola de Impresión</h2>

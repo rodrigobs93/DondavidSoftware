@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CreditMovement;
 use App\Models\Customer;
 use App\Models\Invoice;
 use App\Models\Payment;
@@ -11,6 +12,7 @@ use App\Services\EscPosTicketRenderer;
 use App\Services\SaleService;
 use App\Services\ThermalPrinterService;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class CarteraController extends Controller
 {
@@ -270,6 +272,99 @@ class CarteraController extends Controller
         }
 
         return redirect()->route('cartera.customer', $customer)->with('success', $msg);
+    }
+
+    /**
+     * Apply customer credit (saldo a favor) to a specific invoice on demand.
+     * Does NOT create a Payment record — creates a CreditMovement for audit.
+     */
+    public function applyCredit(Request $request, Invoice $invoice)
+    {
+        $validated = $request->validate([
+            'amount' => ['nullable', 'integer', 'min:1'],
+            'notes'  => ['nullable', 'string', 'max:500'],
+        ]);
+
+        if (bccomp((string) $invoice->balance, '0', 2) <= 0) {
+            $err = 'La factura ya está pagada.';
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $err], 422);
+            }
+            return back()->withErrors(['credit' => $err]);
+        }
+
+        try {
+            $result = DB::transaction(function () use ($invoice, $validated) {
+                // Re-fetch with row locks to prevent concurrent double-application
+                $inv  = Invoice::lockForUpdate()->findOrFail($invoice->id);
+                $cust = Customer::lockForUpdate()->findOrFail($inv->customer_id);
+
+                if (bccomp((string) $cust->credit_balance, '0', 2) <= 0) {
+                    throw new \InvalidArgumentException('El cliente no tiene saldo a favor.');
+                }
+                if (bccomp((string) $inv->balance, '0', 2) <= 0) {
+                    throw new \InvalidArgumentException('La factura ya está pagada.');
+                }
+
+                // Maximum safely applicable
+                $maxApply = bccomp((string) $cust->credit_balance, (string) $inv->balance, 2) >= 0
+                    ? (string) $inv->balance
+                    : (string) $cust->credit_balance;
+
+                $requested = isset($validated['amount'])
+                    ? bcadd('0', (string) $validated['amount'], 2)
+                    : $maxApply;
+
+                // Clamp to safe maximum
+                $applied = bccomp($requested, $maxApply, 2) > 0 ? $maxApply : $requested;
+
+                // Audit trail — immutable ledger entry
+                CreditMovement::create([
+                    'customer_id'        => $cust->id,
+                    'invoice_id'         => $inv->id,
+                    'amount'             => $applied,
+                    'type'               => 'APPLIED_TO_INVOICE',
+                    'created_by_user_id' => auth()->id(),
+                    'notes'              => $validated['notes'] ?? null,
+                ]);
+
+                // Update invoice
+                $newPaid    = bcadd((string) $inv->paid_amount, $applied, 2);
+                $newBalance = bcsub((string) $inv->total, $newPaid, 2);
+                $newStatus  = bccomp($newBalance, '0', 2) === 0 ? 'PAID' : 'PARTIAL';
+
+                $inv->update([
+                    'paid_amount' => $newPaid,
+                    'balance'     => $newBalance,
+                    'status'      => $newStatus,
+                ]);
+
+                // Deduct from customer credit
+                $cust->update([
+                    'credit_balance' => bcsub((string) $cust->credit_balance, $applied, 2),
+                ]);
+
+                return [
+                    'applied'        => (int) round((float) $applied),
+                    'balance'        => (int) round((float) $newBalance),
+                    'paid_amount'    => (int) round((float) $newPaid),
+                    'credit_balance' => (int) round((float) $cust->credit_balance),
+                ];
+            });
+        } catch (\InvalidArgumentException $e) {
+            if ($request->wantsJson()) {
+                return response()->json(['error' => $e->getMessage()], 422);
+            }
+            return back()->withErrors(['credit' => $e->getMessage()]);
+        }
+
+        if ($request->wantsJson()) {
+            return response()->json(['ok' => true, ...$result]);
+        }
+
+        return back()->with('success',
+            'Saldo a favor aplicado: $' . number_format($result['applied'], 0, ',', '.')
+        );
     }
 
     /**
