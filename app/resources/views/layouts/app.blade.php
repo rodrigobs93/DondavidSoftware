@@ -40,10 +40,123 @@
         window.formatCOP = (val) => '$' + Math.round(parseFloat(val) || 0).toLocaleString('es-CO');
         window.formatGrams = (qty) => { const g = Math.round((parseFloat(qty) || 0) * 1000); return g > 0 ? g.toLocaleString('es-CO') + ' g' : ''; };
         window.__touchMode = {{ \App\Models\Setting::get('touch_mode', '0') === '1' ? 'true' : 'false' }};
+        // Keyboard store — always registered so modals can bind to it even when touch_mode is off
+        document.addEventListener('alpine:init', () => {
+            Alpine.store('keyboard', { open: false, height: 0 });
+        });
     </script>
     @if(\App\Models\Setting::get('touch_mode', '0') === '1')
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/css/index.css">
     <script src="https://cdn.jsdelivr.net/npm/simple-keyboard@latest/build/index.js"></script>
+    <style>
+    /* ── POS Touch Keyboard — large-target theme ─────────────────────── */
+    /* Keyboard wrapper: z-400 — above page content, below modals (z-1000) */
+    .hg-theme-default {
+        background: #1e293b;
+        padding: 6px 8px 8px;
+        border-radius: 0;
+        font-family: inherit;
+    }
+    .hg-theme-default .hg-row {
+        display: flex;
+        gap: 5px;
+        margin-bottom: 5px;
+    }
+    .hg-theme-default .hg-row:last-child { margin-bottom: 0; }
+
+    /* ── Normal keys ── */
+    .hg-theme-default .hg-button {
+        height: 52px;
+        min-width: 0;
+        flex: 1;
+        font-size: 1.05rem;
+        font-weight: 700;
+        color: #0f172a;
+        background: #f1f5f9;
+        border: none;
+        border-radius: 7px;
+        box-shadow: 0 3px 0 #94a3b8;
+        transition: background 60ms, transform 60ms, box-shadow 60ms;
+        touch-action: manipulation;
+        user-select: none;
+        -webkit-user-select: none;
+    }
+    .hg-theme-default .hg-button:active,
+    .hg-theme-default .hg-button.hg-activeButton {
+        background: #cbd5e1;
+        box-shadow: 0 1px 0 #94a3b8;
+        transform: translateY(2px);
+    }
+
+    /* ── Modifier keys (darker slate) ── */
+    .hg-theme-default .hg-button[data-skbtn="{bksp}"],
+    .hg-theme-default .hg-button[data-skbtn="{shift}"],
+    .hg-theme-default .hg-button[data-skbtn="{numbers}"],
+    .hg-theme-default .hg-button[data-skbtn="{abc}"] {
+        background: #475569;
+        color: #f1f5f9;
+        box-shadow: 0 3px 0 #1e293b;
+        font-size: 1.1rem;
+    }
+    .hg-theme-default .hg-button[data-skbtn="{bksp}"]:active,
+    .hg-theme-default .hg-button[data-skbtn="{shift}"]:active,
+    .hg-theme-default .hg-button[data-skbtn="{numbers}"]:active,
+    .hg-theme-default .hg-button[data-skbtn="{abc}"]:active {
+        background: #334155;
+        box-shadow: 0 1px 0 #1e293b;
+        transform: translateY(2px);
+    }
+
+    /* ── Space bar ── */
+    .hg-theme-default .hg-button[data-skbtn="{space}"] {
+        flex: 5;
+        background: #e2e8f0;
+        color: #475569;
+        box-shadow: 0 3px 0 #94a3b8;
+        letter-spacing: 0.05em;
+    }
+    .hg-theme-default .hg-button[data-skbtn="{space}"]:active {
+        background: #cbd5e1;
+        box-shadow: 0 1px 0 #94a3b8;
+        transform: translateY(2px);
+    }
+
+    /* ── Done / Listo — green primary action ── */
+    .hg-theme-default .hg-button[data-skbtn="{done}"] {
+        background: #16a34a;
+        color: #fff;
+        font-size: 0.95rem;
+        box-shadow: 0 3px 0 #15803d;
+    }
+    .hg-theme-default .hg-button[data-skbtn="{done}"]:active {
+        background: #15803d;
+        box-shadow: 0 1px 0 #166534;
+        transform: translateY(2px);
+    }
+
+    /* ── Numeric numpad — taller keys ── */
+    .pos-kb-numeric .hg-button {
+        height: 68px;
+        font-size: 1.5rem;
+        font-weight: 800;
+        border-radius: 9px;
+    }
+    .pos-kb-numeric .hg-button[data-skbtn="{bksp}"] { font-size: 1.3rem; }
+    .pos-kb-numeric .hg-button[data-skbtn="{done}"] { font-size: 1rem; font-weight: 700; }
+
+    /* ── "Listo ✓" close button at top of drawer ── */
+    #kb-close-btn {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: #94a3b8;
+        padding: 0.25rem 1rem;
+        border: 1px solid #334155;
+        border-radius: 6px;
+        background: transparent;
+        line-height: 1.75rem;
+    }
+    #kb-close-btn:active { background: #334155; color: #f1f5f9; }
+    </style>
     @endif
 </head>
 <body class="bg-gray-100 min-h-screen">
@@ -219,14 +332,16 @@
 
 @if(\App\Models\Setting::get('touch_mode', '0') === '1')
 <div x-data="touchKeyboard()" x-show="open" x-cloak
-     class="fixed bottom-0 left-0 right-0 z-100 bg-white shadow-2xl border-t border-gray-200 p-2">
+     @mousedown.prevent.stop
+     @touchstart.stop
+     @pointerdown.stop
+     @click.stop
+     class="fixed bottom-0 left-0 right-0 bg-white shadow-2xl border-t border-gray-200 p-2"
+     style="z-index:400">
     <div class="flex justify-end mb-1">
-        <button @click="close()"
-                class="text-xs text-gray-500 px-4 py-1.5 border rounded hover:bg-gray-50">
-            Listo ✓
-        </button>
+        <button id="kb-close-btn" @click.stop="close()">Listo ✓</button>
     </div>
-    <div id="touch-keyboard-container"></div>
+    <div id="touch-keyboard-container" class="touch-keyboard-container"></div>
 </div>
 
 <script>
@@ -236,47 +351,170 @@ function touchKeyboard() {
         kb: null,
         targetEl: null,
 
+        isEligible(el) {
+            if (!el) return false;
+            if (el.dataset.keyboard === 'off') return false;
+            if (el.readOnly || el.disabled) return false;
+
+            const tag = el.tagName;
+            if (tag === 'TEXTAREA') return true;
+            if (tag !== 'INPUT') return false;
+
+            // Types that should NOT open a virtual keyboard
+            const blocked = ['checkbox', 'radio', 'file', 'button', 'submit',
+                             'reset', 'image', 'color', 'range', 'hidden',
+                             'date', 'datetime-local', 'time', 'month', 'week'];
+            const type = (el.type || 'text').toLowerCase();
+            return !blocked.includes(type);
+        },
+
+        isNumericInput(el) {
+            if (el.dataset.keyboard === 'numeric') return true;
+            if ((el.getAttribute('inputmode') || '').toLowerCase() === 'numeric') return true;
+            if ((el.type || '').toLowerCase() === 'number') return true;
+            return false;
+        },
+
         init() {
             document.addEventListener('focusin', (e) => {
                 const el = e.target;
-                if (!el.matches('input[data-keyboard], textarea[data-keyboard]')) return;
+                if (!this.isEligible(el)) return;
                 this.show(el);
             });
-            document.addEventListener('focusout', (e) => {
+            document.addEventListener('focusout', () => {
                 setTimeout(() => {
-                    if (!this.$el.contains(document.activeElement)) this.close();
+                    const active = document.activeElement;
+                    // Keep open if focus returned to the target input or is inside the keyboard
+                    if (active === this.targetEl) return;
+                    if (this.$el.contains(active)) return;
+                    this.close();
                 }, 150);
             });
         },
 
         show(el) {
+            // Same element already active — no re-init needed
+            if (this.open && this.targetEl === el && this.kb) return;
+
             this.targetEl = el;
             this.open = true;
-            const isNumeric = el.dataset.keyboard === 'numeric';
+            const isNumeric = this.isNumericInput(el);
+            // Heights account for: close-bar (36px) + container padding (14px) + rows
+            // Numeric: 4 rows × 68px + 3 gaps × 5px = 287 + 50 = ~370
+            // Text: 4 rows × 52px + 3 gaps × 5px = 223 + 50 = ~290
+            const kbHeight = isNumeric ? 370 : 300;
+
             this.$nextTick(() => {
-                if (this.kb) { this.kb.destroy(); this.kb = null; }
+                // Add body padding so sticky bars aren't buried under keyboard
+                document.body.style.paddingBottom = kbHeight + 'px';
+                Alpine.store('keyboard').open   = true;
+                Alpine.store('keyboard').height = kbHeight;
+
+                // Scroll focused input into view.
+                // Inside a modal (.fixed): use scrollIntoView — modal panel's own scroll handles it.
+                // Page-level input: also nudge window so input clears the keyboard.
+                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                if (!el.closest('.fixed')) {
+                    const rect = el.getBoundingClientRect();
+                    const visibleBottom = window.innerHeight - kbHeight - 16;
+                    if (rect.bottom > visibleBottom) {
+                        window.scrollBy({ top: rect.bottom - visibleBottom, behavior: 'smooth' });
+                    }
+                }
+
+                this.destroyKb();
+
                 const opts = {
                     onChange: val => {
-                        el.value = val;
-                        el.dispatchEvent(new Event('input', { bubbles: true }));
+                        if (!this.targetEl) return;
+                        this.targetEl.value = val;
+                        this.targetEl.dispatchEvent(new Event('input', { bubbles: true }));
+                        // Restore focus to input in case a touch tap blurred it
+                        if (document.activeElement !== this.targetEl) {
+                            this.targetEl.focus();
+                        }
+                        // Re-sync keyboard state after the browser / Alpine may have
+                        // normalised the value (e.g. type="number" strips leading zeros).
+                        // setInput() does NOT fire onChange, so there is no recursion.
+                        requestAnimationFrame(() => {
+                            if (!this.kb || !this.targetEl) return;
+                            const actual = this.targetEl.value;
+                            if (actual !== val) this.kb.setInput(actual);
+                        });
                     },
-                    onKeyPress: key => {
-                        if (key === '{done}') this.close();
-                    },
-                    theme: 'hg-theme-default',
                 };
+
                 if (isNumeric) {
-                    opts.layout = { default: ['1 2 3', '4 5 6', '7 8 9', '{bksp} 0 {done}'] };
+                    opts.theme   = 'hg-theme-default pos-kb-numeric';
+                    opts.layout  = { default: ['1 2 3', '4 5 6', '7 8 9', '{bksp} 0 {done}'] };
                     opts.display = { '{bksp}': '⌫', '{done}': 'Listo' };
+                    opts.onKeyPress = key => { if (key === '{done}') setTimeout(() => this.close(), 0); };
+                } else {
+                    opts.theme  = 'hg-theme-default';
+                    opts.layout = {
+                        default: [
+                            'q w e r t y u i o p {bksp}',
+                            'a s d f g h j k l',
+                            '{shift} z x c v b n m {shift}',
+                            '{numbers} {space} {done}',
+                        ],
+                        shift: [
+                            'Q W E R T Y U I O P {bksp}',
+                            'A S D F G H J K L',
+                            '{shift} Z X C V B N M {shift}',
+                            '{numbers} {space} {done}',
+                        ],
+                        numbers: [
+                            '1 2 3 4 5 6 7 8 9 0 {bksp}',
+                            '- / : ; ( ) $ & @ "',
+                            ". , ? ! ' {done}",
+                            '{abc} {space} {done}',
+                        ],
+                    };
+                    opts.display = {
+                        '{bksp}': '⌫', '{done}': 'Listo ✓',
+                        '{shift}': '⇧', '{space}': '␣',
+                        '{numbers}': '123', '{abc}': 'ABC',
+                    };
+                    opts.onKeyPress = key => {
+                        if (!this.kb) return;
+                        if (key === '{done}') { setTimeout(() => this.close(), 0); return; }
+                        if (key === '{shift}') {
+                            const next = this.kb.options.layoutName === 'default' ? 'shift' : 'default';
+                            this.kb.setOptions({ layoutName: next });
+                        } else if (key === '{numbers}') {
+                            this.kb.setOptions({ layoutName: 'numbers' });
+                        } else if (key === '{abc}') {
+                            this.kb.setOptions({ layoutName: 'default' });
+                        }
+                    };
                 }
-                this.kb = new window.SimpleKeyboard.default('#touch-keyboard-container', opts);
-                this.kb.setInput(el.value ?? '');
+
+                try {
+                    this.kb = new window.SimpleKeyboard.default('.touch-keyboard-container', opts);
+                    // Numeric inputs: always start from empty so browser normalisation
+                    // (e.g. stripping leading zeros on type="number") can't cause drift.
+                    // Text inputs: seed with the current value so the user can continue editing.
+                    this.kb.setInput(isNumeric ? '' : (el.value ?? ''));
+                } catch (err) {
+                    console.warn('touchKeyboard: failed to init SimpleKeyboard', err);
+                    this.kb = null;
+                }
             });
+        },
+
+        destroyKb() {
+            if (!this.kb) return;
+            try { this.kb.destroy(); } catch (e) { /* ignore */ }
+            this.kb = null;
         },
 
         close() {
             this.open = false;
-            if (this.kb) { this.kb.destroy(); this.kb = null; }
+            document.body.style.paddingBottom = '';
+            Alpine.store('keyboard').open   = false;
+            Alpine.store('keyboard').height = 0;
+            this.destroyKb();
             this.targetEl = null;
         }
     };

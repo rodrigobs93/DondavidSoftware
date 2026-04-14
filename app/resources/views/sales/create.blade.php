@@ -118,8 +118,10 @@
                              class="mt-2 border border-amber-300 bg-amber-50 rounded-lg p-3 space-y-2">
                             <p class="text-sm font-semibold text-amber-800">Datos del cliente para FE</p>
                             <input x-model="feForm.name" placeholder="Nombre completo *"
+                                   data-keyboard="text"
                                    class="border rounded px-3 py-2.5 text-base w-full">
                             <input x-model="feForm.email" placeholder="Email (opcional)"
+                                   data-keyboard="text"
                                    class="border rounded px-3 py-2.5 text-base w-full">
                             <div class="flex gap-2">
                                 <select x-model="feForm.doc_type" class="border rounded px-3 py-2.5 text-base w-1/3">
@@ -128,10 +130,12 @@
                                     <option value="NIT">NIT</option>
                                 </select>
                                 <input x-model="feForm.doc_number" placeholder="Número de doc *"
+                                       data-keyboard="numeric"
                                        class="border rounded px-3 py-2.5 text-base flex-1">
                             </div>
                             <input x-show="feForm.doc_type === 'NIT'" x-model="feForm.business_name"
                                    placeholder="Razón social *"
+                                   data-keyboard="text"
                                    class="border rounded px-3 py-2.5 text-base w-full">
                             @if($isAdmin)
                             <button type="button" @click="createFeCustomer()" :disabled="feCreating"
@@ -292,6 +296,7 @@
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">Notas (opcional)</label>
                             <textarea name="notes" rows="2" placeholder="Instrucciones especiales, referencias…"
+                                      data-keyboard="text"
                                       class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400"></textarea>
                         </div>
                     </div>

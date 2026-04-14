@@ -78,6 +78,7 @@
                         @input.debounce.200ms="searchProducts()"
                         @focus="showDrop=true" @keydown.escape="showDrop=false"
                         placeholder="Buscar producto..."
+                        data-keyboard="text"
                         class="w-full border rounded px-2 py-2 text-sm">
                     <div x-show="showDrop && productResults.length > 0"
                          class="absolute z-20 w-full bg-white border rounded shadow-lg mt-1 max-h-40 overflow-auto">
@@ -97,6 +98,7 @@
                     <label class="block text-xs text-gray-500 mb-1">Precio $</label>
                     <input type="number" x-model.number="newPrice" min="0" step="100"
                         placeholder="0"
+                        data-keyboard="numeric"
                         class="w-full border rounded px-2 py-2 text-sm text-right">
                 </div>
 

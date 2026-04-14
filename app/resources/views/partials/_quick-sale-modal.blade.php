@@ -1,15 +1,17 @@
 {{-- Quick Sale Modal — triggered by 'open-quick-sale' custom event from nav --}}
 <div x-data="quickSaleModal()" x-cloak
      @open-quick-sale.window="open()"
+     @open-marquillas.window="close()"
      @keydown.escape.window="close()"
      x-show="show"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4">
+     class="fixed inset-x-0 top-0 flex items-center justify-center p-4"
+     :style="{ zIndex: 1000, bottom: $store.keyboard.open ? $store.keyboard.height + 'px' : '0' }">
 
-    {{-- Backdrop --}}
+    {{-- Backdrop — clipped so keyboard area stays tappable --}}
     <div class="absolute inset-0 bg-black/50" @click="close()"></div>
 
     {{-- Panel --}}
-    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm z-10"
+    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-sm z-10 overflow-y-auto max-h-[85vh]"
          @click.stop>
 
         {{-- ── STAGE: form ── --}}
@@ -34,6 +36,7 @@
                                x-model.number="total"
                                x-ref="totalInput"
                                @keydown.enter="method ? $refs.finishBtn.click() : null"
+                               data-keyboard="numeric"
                                class="form-input pl-7 text-xl font-semibold"
                                placeholder="0">
                     </div>
@@ -61,6 +64,7 @@
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">$</span>
                         <input type="number" inputmode="numeric" min="0" step="1"
                                x-model.number="cashReceived"
+                               data-keyboard="numeric"
                                class="form-input pl-7 text-lg font-semibold"
                                placeholder="0">
                     </div>
@@ -79,6 +83,7 @@
                 <div class="mb-5">
                     <label class="block text-xs font-semibold text-gray-600 mb-1">Nota (opcional)</label>
                     <input type="text" x-model="notes" maxlength="255"
+                           data-keyboard="text"
                            class="form-input text-sm"
                            placeholder="Descripción breve…">
                 </div>

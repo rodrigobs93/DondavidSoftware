@@ -1,15 +1,18 @@
 {{-- Marquilla Modal — triggered by 'open-marquillas' custom event from nav --}}
 <div x-data="marquillaModal()" x-cloak
      @open-marquillas.window="open()"
+     @open-quick-sale.window="close()"
      @keydown.escape.window="close()"
      x-show="show"
-     class="fixed inset-0 z-50 flex items-center justify-center p-4">
+     class="fixed inset-x-0 top-0 flex items-center justify-center p-4"
+     :style="{ zIndex: 1000, bottom: $store.keyboard.open ? $store.keyboard.height + 'px' : '0' }">
 
-    {{-- Backdrop --}}
+    {{-- Backdrop — clipped so keyboard area stays tappable --}}
     <div class="absolute inset-0 bg-black/50" @click="close()"></div>
 
     {{-- Panel --}}
-    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md z-10" @click.stop>
+    <div class="relative bg-white rounded-xl shadow-2xl w-full max-w-md z-10 flex flex-col overflow-hidden max-h-[85vh]"
+         @click.stop>
 
         {{-- Header --}}
         <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
@@ -18,7 +21,7 @@
                     class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
-        <div class="px-5 py-4 space-y-4">
+        <div class="px-5 py-4 space-y-4 overflow-y-auto flex-1">
 
             {{-- Product search + add custom --}}
             <div class="flex gap-2">
@@ -71,10 +74,12 @@
                                x-model="line.text"
                                maxlength="100"
                                placeholder="Texto..."
+                               data-keyboard="text"
                                class="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-400">
                         <input type="number"
                                x-model.number="line.copies"
                                min="1" max="20"
+                               data-keyboard="numeric"
                                class="w-20 border border-gray-300 rounded-lg px-2 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-indigo-400">
                         <button type="button"
                                 @click="removeLine(idx)"

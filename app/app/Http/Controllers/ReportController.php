@@ -11,8 +11,8 @@ class ReportController extends Controller
     public function payments(Request $request)
     {
         $q              = $request->input('q', '');
-        $startDate      = $request->input('start_date', now()->setTimezone('America/Bogota')->toDateString());
-        $endDate        = $request->input('end_date', $startDate);
+        $startDate      = $request->input('start_date', '');
+        $endDate        = $request->input('end_date', '');
         $method         = $request->input('method', '');
         $unverifiedOnly = $request->boolean('unverified_only');
 

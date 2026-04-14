@@ -2,6 +2,7 @@
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Nombre *</label>
         <input type="text" name="name" value="{{ old('name', $customer?->name) }}"
+            data-keyboard="text"
             class="form-input w-full border rounded px-3 py-2 text-sm" required>
         @error('name') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
     </div>
@@ -12,6 +13,7 @@
             <span x-show="docType === 'NIT'" class="text-red-500">*</span>
         </label>
         <input type="text" name="business_name" value="{{ old('business_name', $customer?->business_name) }}"
+            data-keyboard="text"
             class="w-full border rounded px-3 py-2 text-sm"
             placeholder="Restaurante La Leña S.A.S."
             :required="docType === 'NIT'">
@@ -32,6 +34,7 @@
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Número doc.</label>
             <input type="text" name="doc_number" value="{{ old('doc_number', $customer?->doc_number) }}"
+                data-keyboard="numeric"
                 class="w-full border rounded px-3 py-2 text-sm" placeholder="900.123.456-1">
         </div>
     </div>
@@ -39,24 +42,27 @@
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
         <input type="text" name="phone" value="{{ old('phone', $customer?->phone) }}"
+            data-keyboard="numeric"
             class="w-full border rounded px-3 py-2 text-sm" placeholder="3001234567">
     </div>
 
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Dirección</label>
         <input type="text" name="address" value="{{ old('address', $customer?->address) }}"
+            data-keyboard="text"
             class="w-full border rounded px-3 py-2 text-sm">
     </div>
 
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
         <input type="email" name="email" value="{{ old('email', $customer?->email) }}"
+            data-keyboard="text"
             class="w-full border rounded px-3 py-2 text-sm">
     </div>
 
     <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Notas</label>
-        <textarea name="notes" rows="2" class="w-full border rounded px-3 py-2 text-sm">{{ old('notes', $customer?->notes) }}</textarea>
+        <textarea name="notes" rows="2" data-keyboard="text" class="w-full border rounded px-3 py-2 text-sm">{{ old('notes', $customer?->notes) }}</textarea>
     </div>
 
     <div>
