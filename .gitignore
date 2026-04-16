@@ -1,2 +1,6 @@
 # Claude Code local settings
 .claude/
+
+# Windows installer build artifacts (large binaries + generated setup.exe)
+installer/payload/
+installer/output/

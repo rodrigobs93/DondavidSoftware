@@ -230,3 +230,16 @@
 | 2026-03-30 | Touch-first UI audit + optimization — min 44px tap targets across all views; `/sales/new` priority (payment chips, qty panel, finalize button, TOTAL hierarchy, remove buttons); filter chips in invoices/customers/reports |
 | 2026-03-30 | Cartera Phase 1 — customer-grouped index, `/cartera/{customer}` detail page, `CustomerPayment` model + migration, FIFO consolidated payment service (`CustomerPaymentService`), `customers.credit_balance` (saldo a favor), 3 new migrations |
 | 2026-03-30 | Cartera Phase 2 — day/week invoice grouping (`?group=day\|week`), thermal "sacar el cobro" ticket (`renderCarteraResumen()`), print button on customer detail page |
+| 2026-04-15 | Windows Installer — Inno Setup + PowerShell: bundled PHP 8.2 + Postgres 16 portable, one-click desktop launcher with anti-double-boot, `pos:create-admin` / `pos:set-printer` artisan commands |
+
+---
+
+## 13. Deployment
+
+Standalone Windows installer. See `installer/README.md` for full details.
+
+- **Build**: `installer/build-installer.ps1` → downloads portable PHP 8.2 + Postgres 16, copies app + vendor, compiles Inno Setup → `DonDavidSetup-<version>.exe`.
+- **Install**: run the `.exe` as admin on each cashier PC → wizard prompts for port, printer queue, admin email/pw → creates `C:\DonDavid\` with everything, registers `DonDavidPostgres` Windows service, creates desktop shortcut.
+- **Daily use**: double-click desktop icon `Don David POS` → `start.ps1` starts all components (idempotent, anti-double-boot), opens browser.
+- **Updates**: bump version in `DonDavid.iss`, rebuild `.exe`, re-run on target PCs (idempotent — preserves DB + `.env`).
+- **Topology**: each PC is fully standalone (own PHP, Postgres, DB). No cross-PC sync.
