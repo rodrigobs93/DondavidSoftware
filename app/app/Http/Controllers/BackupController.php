@@ -20,7 +20,7 @@ class BackupController extends Controller
     public function export()
     {
         $config   = config('database.connections.pgsql');
-        $filename = 'dondavid_backup_' . now()->setTimezone('America/Bogota')->format('Y-m-d_His') . '.sql';
+        $filename = 'mipos_backup_' . now()->setTimezone('America/Bogota')->format('Y-m-d_His') . '.sql';
         $tmpPath  = sys_get_temp_dir() . DIRECTORY_SEPARATOR . $filename;
 
         $pgDump = 'C:\\Program Files\\PostgreSQL\\16\\bin\\pg_dump.exe';

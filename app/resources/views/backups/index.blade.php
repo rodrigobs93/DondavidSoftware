@@ -149,7 +149,7 @@ $currentHeaderColor = $settings['header_color'] ?? '#111827';
                         <label class="block text-sm font-medium text-gray-700 mb-1">Ruta backup (OneDrive)</label>
                         <input type="text" name="backup_path" value="{{ $settings['backup_path'] ?? '' }}"
                             class="w-full border rounded px-3 py-2 text-sm font-mono"
-                            placeholder="C:\Users\...\OneDrive\DonDavidBackups">
+                            placeholder="C:\Users\...\OneDrive\MiPOSBackups">
                         <p class="text-xs text-gray-400 mt-1">Carpeta local donde se copian los backups automáticamente.</p>
                     </div>
                 </div>

@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login — Don David POS</title>
+    <title>Iniciar sesion — {{ \App\Models\Setting::get('shop_name', 'Mi Negocio') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-900 min-h-screen flex items-center justify-center">
 <div class="w-full max-w-sm">
     <div class="text-center mb-8">
         <div class="text-5xl mb-3">🥩</div>
-        <h1 class="text-white text-2xl font-bold">Carnicería Don David</h1>
+        <h1 class="text-white text-2xl font-bold">{{ \App\Models\Setting::get('shop_name', 'Mi Negocio') }}</h1>
         <p class="text-gray-400 text-sm mt-1">Sistema POS</p>
     </div>
 
@@ -26,7 +26,7 @@
                     autofocus
                     autocomplete="email"
                     class="w-full border rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 @error('email') border-red-500 @enderror"
-                    placeholder="admin@dondavid.co"
+                    placeholder="admin@minegocio.local"
                     required
                 >
                 @error('email')

@@ -33,7 +33,7 @@ class SaleService
             unset($item);
 
             $deliveryFee = bcadd('0', (string) ($data['delivery_fee'] ?? '0'), 2);
-            $total = bcadd($subtotal, $deliveryFee, 2);
+            $total = $this->roundUp50(bcadd($subtotal, $deliveryFee, 2));
 
             $paidAmount = '0';
             foreach ($data['payments'] as $payment) {
@@ -141,6 +141,14 @@ class SaleService
             'fe_issued_at'         => now(),
             'fe_issued_by_user_id' => $issuedBy->id,
         ]);
+    }
+
+    private function roundUp50(string $amount): string
+    {
+        $n   = (int) round((float) $amount);
+        $mod = $n % 50;
+        if ($mod === 0) return number_format($n, 2, '.', '');
+        return number_format($n + 50 - $mod, 2, '.', '');
     }
 
     public function createPrintJob(Invoice $invoice): PrintJob

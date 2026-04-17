@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-  Post-install bootstrap for Don David POS. Invoked by Inno Setup after file
+  Post-install bootstrap for Mi Negocio POS. Invoked by Inno Setup after file
   extraction. Idempotent — safe to re-run for upgrades.
 
 .PARAMETER InstallRoot
-  e.g. C:\DonDavid
+  e.g. C:\MiPOS
 
 .PARAMETER Port
   HTTP port for artisan serve.
@@ -75,7 +75,7 @@ function New-RandomPassword([int]$Len = 24) {
 }
 
 # --- 1. Sanity ---
-Log '==== Don David POS install ===='
+Log '==== Mi Negocio POS install ===='
 Log "Root=$InstallRoot Port=$Port Printer=$PrinterQueue Admin=$AdminEmail"
 
 if (-not (Test-Path $PhpExe)) { throw "Portable PHP not found at $PhpExe" }
@@ -83,7 +83,7 @@ if (-not (Test-Path (Join-Path $PgBin 'initdb.exe'))) { throw "Portable Postgres
 if (-not (Test-Path (Join-Path $AppDir 'artisan'))) { throw "App not found at $AppDir" }
 
 # --- 2. Initialize Postgres data directory (first install only) ---
-$ServiceName = 'DonDavidPostgres'
+$ServiceName = 'MiPOSPostgres'
 $svc = Get-Service $ServiceName -ErrorAction SilentlyContinue
 if (-not (Test-Path (Join-Path $PgData 'PG_VERSION'))) {
     Log 'Running initdb (first install)…'
@@ -109,8 +109,8 @@ for ($i=0; $i -lt 20; $i++) {
 }
 
 # --- 4. Create DB + role (idempotent) ---
-$DbName = 'don_david'
-$DbUser = 'don_david_user'
+$DbName = 'mi_pos'
+$DbUser = 'mi_pos_user'
 $DbPassFile = Join-Path $InstallRoot 'run\db_password.txt'
 New-Item -ItemType Directory -Force -Path (Split-Path $DbPassFile) | Out-Null
 
@@ -207,17 +207,17 @@ foreach ($sub in 'storage','bootstrap\cache') {
 }
 
 # --- 10. Firewall ---
-$ruleName = "Don David POS (TCP $Port)"
+$ruleName = "Mi Negocio POS (TCP $Port)"
 if (-not (Get-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue)) {
     New-NetFirewallRule -DisplayName $ruleName -Direction Inbound -LocalPort $Port -Protocol TCP -Action Allow | Out-Null
     Log "Firewall rule added: $ruleName"
 }
 
 # --- 11. Desktop shortcut ---
-$icon = Join-Path $InstallRoot 'DonDavid.ico'
+$icon = Join-Path $InstallRoot 'MiPOS.ico'
 $startPs1 = Join-Path $ScriptsDir 'start.ps1'
 $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
-$lnkPath = Join-Path $desktop 'Don David POS.lnk'
+$lnkPath = Join-Path $desktop 'Mi Negocio POS.lnk'
 
 $wsh = New-Object -ComObject WScript.Shell
 $lnk = $wsh.CreateShortcut($lnkPath)
@@ -225,14 +225,14 @@ $lnk.TargetPath       = 'powershell.exe'
 $lnk.Arguments        = "-NoProfile -ExecutionPolicy Bypass -WindowStyle Hidden -File `"$startPs1`""
 $lnk.WorkingDirectory = $InstallRoot
 if (Test-Path $icon) { $lnk.IconLocation = $icon }
-$lnk.Description      = 'Arranca el sistema Don David POS'
+$lnk.Description      = 'Arranca el sistema Mi Negocio POS'
 $lnk.Save()
 Log "Desktop shortcut created: $lnkPath"
 
 # --- 12. Startup folder (optional) ---
 if ($CreateStartupShortcut) {
     $startupDir = [Environment]::GetFolderPath('CommonStartup')
-    $startupLnk = Join-Path $startupDir 'Don David POS.lnk'
+    $startupLnk = Join-Path $startupDir 'Mi Negocio POS.lnk'
     Copy-Item $lnkPath $startupLnk -Force
     Log "Auto-start shortcut installed: $startupLnk"
 }

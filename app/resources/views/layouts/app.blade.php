@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta name="csrf-token" content="{{ csrf_token() }}">
-    <title>@yield('title', 'Don David POS')</title>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <title>@yield('title', 'POS') — {{ \App\Models\Setting::get('shop_name', 'Mi Negocio') }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
@@ -163,6 +164,7 @@
 
 {{-- Top nav --}}
 @php
+    $__shopName    = \App\Models\Setting::get('shop_name', 'Mi Negocio');
     $__logoPath    = \App\Models\Setting::get('business_logo_path');
     $__headerColor = \App\Models\Setting::get('header_color', '#111827');
     if (!preg_match('/^#[0-9a-fA-F]{6}$/', $__headerColor)) { $__headerColor = '#111827'; }
@@ -185,19 +187,19 @@
                 @if($__logoPath)
                     <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" class="h-10 w-auto rounded" alt="Logo">
                 @else
-                    <span class="font-bold text-lg tracking-wide">🥩 Don David POS</span>
+                    <span class="font-bold text-lg tracking-wide">{{ $__shopName }}</span>
                 @endif
             </a>
 
             {{-- Desktop nav links (hidden below lg) --}}
             <div class="hidden lg:flex items-center gap-1 text-sm">
                 @auth
-                    <a href="{{ route('sales.create') }}" class="text-green-400 hover:text-green-300 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">+ Venta</a>
+                    <a href="{{ route('sales.create') }}" class="text-green-400 hover:text-green-300 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">+ Factura</a>
                     <a href="#" @click.prevent="$dispatch('open-quick-sale')"
                        class="text-yellow-400 hover:text-yellow-300 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">⚡ Rápida</a>
                     <a href="#" @click.prevent="$dispatch('open-marquillas')"
                        class="{{ $__navActive('') }} text-purple-300 hover:text-purple-200 font-semibold px-2 py-1 rounded hover:bg-white/10 transition">🏷 Marquillas</a>
-                    <a href="{{ route('invoices.index') }}" class="{{ $__navActive('invoices.*') }}">Facturas</a>
+                    <a href="{{ route('invoices.index') }}" class="{{ $__navActive('invoices.*') }}">Registros</a>
                     <a href="{{ route('cartera.index') }}" class="{{ $__navActive('cartera.*') }}">Cartera</a>
                     <a href="{{ route('fe-pending.index') }}" class="{{ $__navActive('fe-pending.*') }}">FE</a>
                     @if(auth()->user()->isAdmin())
@@ -246,7 +248,7 @@
             @auth
                 <a href="{{ route('sales.create') }}" @click="menuOpen = false"
                    class="flex items-center gap-2 py-3 px-5 text-sm text-green-400 font-semibold hover:bg-white/10 transition {{ request()->routeIs('sales.create') ? 'bg-white/20' : '' }}">
-                    + Venta
+                    + Factura
                 </a>
                 <button @click="menuOpen = false; $dispatch('open-quick-sale')"
                         class="flex items-center gap-2 py-3 px-5 text-sm text-yellow-400 font-semibold hover:bg-white/10 transition w-full text-left">
@@ -258,7 +260,7 @@
                 </button>
                 <a href="{{ route('invoices.index') }}" @click="menuOpen = false"
                    class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('invoices.*') ? 'bg-white/20 font-semibold' : '' }}">
-                    Facturas
+                    Registros
                 </a>
                 <a href="{{ route('cartera.index') }}" @click="menuOpen = false"
                    class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('cartera.*') ? 'bg-white/20 font-semibold' : '' }}">

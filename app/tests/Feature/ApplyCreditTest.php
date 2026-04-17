@@ -27,7 +27,7 @@ class ApplyCreditTest extends TestCase
         parent::setUp();
         // Use the first admin user (seeded in dev DB) or create a minimal one
         $this->user = User::firstOrCreate(
-            ['email' => 'test_credit@dondavid.test'],
+            ['email' => 'test_credit@minegocio.test'],
             ['name' => 'Test Credit', 'password' => bcrypt('password'), 'is_admin' => true]
         );
     }

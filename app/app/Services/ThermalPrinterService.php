@@ -36,7 +36,7 @@ class ThermalPrinterService
                . $this->sanitize("á é í ó ú - Á É Í Ó Ú\n") // → a e i o u - A E I O U
                . "Precio: \$38.000\n"
                . str_repeat('-', 42) . "\n"
-               . "Don David POS - OK\n\n\n"
+               . "POS - OK\n\n\n"
                . chr(0x1D) . chr(0x56) . chr(0x41) . chr(3); // FULL CUT
 
         $this->send($bytes);
@@ -133,7 +133,7 @@ if (-not [WinSpool]::OpenPrinter($PrinterName, [ref]$hPrinter, [IntPtr]::Zero)) 
 }
 try {
     $di           = New-Object WinSpool+DOCINFO
-    $di.pDocName  = "DonDavidTicket"
+    $di.pDocName  = "POSTicket"
     $di.pDatatype = "RAW"
     [WinSpool]::StartDocPrinter($hPrinter, 1, [ref]$di) | Out-Null
     [WinSpool]::StartPagePrinter($hPrinter) | Out-Null

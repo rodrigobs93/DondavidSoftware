@@ -3,9 +3,9 @@
   Print a short status table: Postgres / Laravel / Worker + PIDs.
 #>
 
-$InstallRoot = if ($env:DONDAVID_ROOT) { $env:DONDAVID_ROOT } else { 'C:\DonDavid' }
-$Port        = if ($env:DONDAVID_PORT) { [int]$env:DONDAVID_PORT } else { 8000 }
-$ServiceName = 'DonDavidPostgres'
+$InstallRoot = if ($env:MIPOS_ROOT) { $env:MIPOS_ROOT } else { 'C:\MiPOS' }
+$Port        = if ($env:MIPOS_PORT) { [int]$env:MIPOS_PORT } else { 8000 }
+$ServiceName = 'MiPOSPostgres'
 
 function Row([string]$Name, [string]$State, [string]$Extra) {
     '{0,-12} {1,-10} {2}' -f $Name, $State, $Extra

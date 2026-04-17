@@ -88,6 +88,12 @@
                            placeholder="Descripción breve…">
                 </div>
 
+                {{-- Rounding info --}}
+                <div x-show="roundingAdj > 0" x-cloak class="mb-3 text-sm text-center text-gray-500">
+                    Ajuste redondeo: <span class="font-mono" x-text="fmt(roundingAdj)"></span>
+                    &rarr; Total: <span class="font-semibold text-gray-800" x-text="fmt(roundedTotal)"></span>
+                </div>
+
                 {{-- Finalize button --}}
                 <button type="button"
                         x-ref="finishBtn"
@@ -187,17 +193,27 @@ function quickSaleModal() {
             { value: 'BREB',      label: 'Bre-B',     active: 'bg-purple-600 text-white border-purple-600', inactive: 'bg-white text-gray-600 border-gray-300 hover:border-purple-400' },
         ],
 
+        get roundedTotal() {
+            const n = Math.ceil(parseFloat(this.total) || 0);
+            const mod = n % 50;
+            return mod === 0 ? n : n + (50 - mod);
+        },
+
+        get roundingAdj() {
+            return this.roundedTotal - (Math.ceil(parseFloat(this.total) || 0));
+        },
+
         get change() {
-            return parseFloat(this.cashReceived || 0) - parseFloat(this.total || 0);
+            return parseFloat(this.cashReceived || 0) - this.roundedTotal;
         },
 
         get cashValid() {
             if (this.method !== 'CASH') return true;
-            return parseFloat(this.cashReceived || 0) >= parseFloat(this.total || 0);
+            return parseFloat(this.cashReceived || 0) >= this.roundedTotal;
         },
 
         get canSubmit() {
-            return parseFloat(this.total) > 0 && this.method !== '' && this.cashValid;
+            return this.roundedTotal > 0 && this.method !== '' && this.cashValid;
         },
 
         open() {
@@ -235,7 +251,7 @@ function quickSaleModal() {
 
             try {
                 const body = {
-                    total_amount:   parseFloat(this.total),
+                    total_amount:   this.roundedTotal,
                     payment_method: this.method,
                     notes:          this.notes || null,
                     submission_key: this.submissionKey,

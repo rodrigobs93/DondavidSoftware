@@ -394,6 +394,10 @@
                             <span class="text-gray-600">Domicilio</span>
                             <span class="font-mono">$<span x-text="formatNum(deliveryFee)"></span></span>
                         </div>
+                        <div x-show="roundingAdjustment > 0" class="flex justify-between text-xs text-gray-500">
+                            <span>Ajuste redondeo</span>
+                            <span class="font-mono">$<span x-text="formatNum(roundingAdjustment)"></span></span>
+                        </div>
                         <div class="flex justify-between text-xl font-bold border-t pt-2 mt-2">
                             <span>TOTAL</span>
                             <span class="font-mono text-green-700 text-2xl">$<span x-text="formatNum(total)"></span></span>
@@ -619,8 +623,16 @@ function saleForm() {
         get subtotal() {
             return this.items.reduce((s, i) => s + (parseFloat(i.line_total) || 0), 0);
         },
-        get total() {
+        get rawTotal() {
             return this.subtotal + (parseFloat(this.deliveryFee) || 0);
+        },
+        get total() {
+            const raw = this.rawTotal;
+            const mod = raw % 50;
+            return mod === 0 ? raw : raw + (50 - mod);
+        },
+        get roundingAdjustment() {
+            return this.total - this.rawTotal;
         },
         get paidAmount() {
             return this.payments.reduce((s, p) => s + (parseFloat(p.amount) || 0), 0);

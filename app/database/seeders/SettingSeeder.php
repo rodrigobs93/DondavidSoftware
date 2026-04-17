@@ -10,8 +10,8 @@ class SettingSeeder extends Seeder
     public function run(): void
     {
         $defaults = [
-            'shop_name'            => ['value' => 'Carnicería Don David',        'description' => 'Nombre del negocio'],
-            'shop_address'         => ['value' => 'Paloquemao, Bogotá',           'description' => 'Dirección del negocio'],
+            'shop_name'            => ['value' => 'Mi Negocio',                    'description' => 'Nombre del negocio'],
+            'shop_address'         => ['value' => '',                              'description' => 'Dirección del negocio'],
             'shop_phone'           => ['value' => '3001234567',                   'description' => 'Teléfono de contacto'],
             'shop_nit'             => ['value' => '900.XXX.XXX-X',               'description' => 'NIT del negocio'],
             'invoice_footer'       => ['value' => '¡Gracias por su compra!',      'description' => 'Pie de página del tiquete'],

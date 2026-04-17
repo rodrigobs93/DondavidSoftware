@@ -81,28 +81,29 @@ class EscPosTicketRenderer
         $out .= $this->divider('-', self::WIDTH_B);
 
         // ── Column headers (font B) ───────────────────────────────────────────
-        // Layout fills full WIDTH_B=56: name(20)+sp+qty(9)+sp+price(12)+sp+total(12) = 56
-        $out .= $this->pad('DESCRIPCION', 20)
-              . ' ' . $this->padL('CANT',   9)
-              . ' ' . $this->padL('P.UNIT', 12)
-              . ' ' . $this->padL('TOTAL',  12)
+        // Layout fills full WIDTH_B=56: name(24)+sp+qty(7)+sp+price(11)+sp+total(11) = 56
+        $colName = 24; $colQty = 7; $colPrice = 11; $colTotal = 11;
+        $out .= $this->pad('DESCRIPCION', $colName)
+              . ' ' . $this->padL('CANT',   $colQty)
+              . ' ' . $this->padL('P.UNIT', $colPrice)
+              . ' ' . $this->padL('TOTAL',  $colTotal)
               . self::LF;
         $out .= $this->divider('-', self::WIDTH_B);
 
         // ── Items ─────────────────────────────────────────────────────────────
         foreach ($items as $item) {
             $name = $item['product_name_snapshot'];
-            if (mb_strlen($name) > 20) {
-                $name = mb_substr($name, 0, 17) . '...';
+            if (mb_strlen($name) > $colName) {
+                $name = mb_substr($name, 0, $colName - 3) . '...';
             }
             $qty   = $item['formatted_quantity'];
             $price = $this->cop($item['unit_price']);
             $total = $this->cop($item['line_total']);
 
-            $out .= $this->enc($this->pad($name, 20))
-                  . ' ' . $this->padL($qty,   9)
-                  . ' ' . $this->padL($price, 12)
-                  . ' ' . $this->padL($total, 12)
+            $out .= $this->enc($this->pad($name, $colName))
+                  . ' ' . $this->padL($qty,   $colQty)
+                  . ' ' . $this->padL($price, $colPrice)
+                  . ' ' . $this->padL($total, $colTotal)
                   . self::LF;
         }
         $out .= $this->divider('-', self::WIDTH_B);
@@ -112,6 +113,13 @@ class EscPosTicketRenderer
         $out .= $this->twoCol('Subtotal:', $this->cop($invoice['subtotal']), self::WIDTH_B);
         if ((float) $invoice['delivery_fee'] > 0) {
             $out .= $this->twoCol('Domicilio:', $this->cop($invoice['delivery_fee']), self::WIDTH_B);
+        }
+        $rawTotal = bcadd($invoice['subtotal'], $invoice['delivery_fee'] ?? '0', 2);
+        $adj = bcsub($invoice['total'], $rawTotal, 2);
+        if (bccomp($adj, '0', 2) > 0) {
+            $out .= self::BOLD_OFF;
+            $out .= $this->twoCol('Ajuste redondeo:', $this->cop($adj), self::WIDTH_B);
+            $out .= self::BOLD_ON;
         }
         $out .= $this->twoCol('TOTAL:', $this->cop($invoice['total']), self::WIDTH_B);
         $out .= self::BOLD_OFF;
@@ -130,6 +138,14 @@ class EscPosTicketRenderer
         $out .= $this->twoCol('SALDO:',        $this->cop($invoice['balance']),     self::WIDTH_B);
         $out .= self::BOLD_OFF;
         $out .= $this->divider('=', self::WIDTH_B);
+
+        // ── Signature line (delivery proof) ──────────────────────────────────
+        $out .= self::FONT_B . self::ALIGN_LEFT;
+        $out .= self::LF;
+        $out .= 'Firma recibido:' . self::LF;
+        $out .= self::LF;
+        $out .= str_repeat('_', self::WIDTH_B) . self::LF;
+        $out .= self::LF;
 
         // FE status line REMOVED per requirements
 

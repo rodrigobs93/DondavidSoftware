@@ -26,9 +26,9 @@
         <env name="DB_CONNECTION" value="pgsql"/>
         <env name="DB_HOST" value="127.0.0.1"/>
         <env name="DB_PORT" value="5432"/>
-        <env name="DB_DATABASE" value="don_david"/>
-        <env name="DB_USERNAME" value="don_david_user"/>
-        <env name="DB_PASSWORD" value="don_david_pass"/>
+        <env name="DB_DATABASE" value="mi_pos"/>
+        <env name="DB_USERNAME" value="mi_pos_user"/>
+        <env name="DB_PASSWORD" value="mi_pos_pass"/>
         <env name="MAIL_MAILER" value="array"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>

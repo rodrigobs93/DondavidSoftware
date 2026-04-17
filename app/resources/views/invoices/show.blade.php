@@ -84,6 +84,13 @@
                         <td class="text-right">${{ number_format($invoice->delivery_fee, 0, ',', '.') }}</td>
                     </tr>
                     @endif
+                    @php $__adj = $invoice->total - ($invoice->subtotal + $invoice->delivery_fee); @endphp
+                    @if($__adj > 0)
+                    <tr class="text-xs text-gray-500">
+                        <td colspan="3" class="text-right">Ajuste redondeo</td>
+                        <td class="text-right">${{ number_format($__adj, 0, ',', '.') }}</td>
+                    </tr>
+                    @endif
                     <tr class="font-bold text-base border-t">
                         <td colspan="3" class="pt-2 text-right">TOTAL</td>
                         <td class="pt-2 text-right text-green-700">${{ number_format($invoice->total, 0, ',', '.') }}</td>

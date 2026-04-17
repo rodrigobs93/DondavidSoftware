@@ -21,8 +21,8 @@ class QuickSaleService
             $int = (int) $row->val;
             $receiptNumber = 'R-' . str_pad($int, 6, '0', STR_PAD_LEFT);
 
-            // 2. Precision arithmetic
-            $total    = bcadd('0', (string) $data['total_amount'], 2);
+            // 2. Precision arithmetic + Colombia cash rounding
+            $total    = $this->roundUp50(bcadd('0', (string) $data['total_amount'], 2));
             $method   = $data['payment_method'];
 
             $cashReceived = null;
@@ -58,6 +58,14 @@ class QuickSaleService
 
             return $qs;
         });
+    }
+
+    private function roundUp50(string $amount): string
+    {
+        $n   = (int) round((float) $amount);
+        $mod = $n % 50;
+        if ($mod === 0) return number_format($n, 2, '.', '');
+        return number_format($n + 50 - $mod, 2, '.', '');
     }
 
     public function createPrintJobForQuickSale(QuickSale $qs): PrintJob

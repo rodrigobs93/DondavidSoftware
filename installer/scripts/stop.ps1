@@ -10,7 +10,7 @@
 
 $ErrorActionPreference = 'Continue'
 
-$InstallRoot = if ($env:DONDAVID_ROOT) { $env:DONDAVID_ROOT } else { 'C:\DonDavid' }
+$InstallRoot = if ($env:MIPOS_ROOT) { $env:MIPOS_ROOT } else { 'C:\MiPOS' }
 $RunDir      = Join-Path $InstallRoot 'run'
 $LaravelPidFile = Join-Path $RunDir 'laravel.pid'
 $WorkerPidFile  = Join-Path $RunDir 'worker.pid'

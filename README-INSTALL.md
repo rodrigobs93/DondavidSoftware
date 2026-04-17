@@ -1,11 +1,11 @@
-# Carnicería Don David — Instalación en PC POS (Windows)
+# Mi Negocio POS — Instalación en PC POS (Windows)
 
 ## Credenciales por defecto
 
 | Usuario | Email | Contraseña | Rol |
 |---------|-------|-----------|-----|
-| Administrador | admin@dondavid.co | DonDavid2024! | Admin |
-| Cajero | cajero@dondavid.co | Cajero2024! | Cashier |
+| Administrador | admin@minegocio.local | Admin1234! | Admin |
+| Cajero | cajero@minegocio.local | Cajero2024! | Cashier |
 
 **Cambiar contraseñas inmediatamente en producción.**
 
@@ -55,23 +55,23 @@ Abre una terminal como **Administrador** y ejecuta:
 
 ```batch
 REM Servicio web
-C:\nssm\nssm.exe install DonDavidWeb "C:\Users\rodri\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.2_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe"
-C:\nssm\nssm.exe set DonDavidWeb AppParameters "artisan serve --host=0.0.0.0 --port=8000"
-C:\nssm\nssm.exe set DonDavidWeb AppDirectory "C:\Users\rodri\OneDrive\COLDEVS\donDavidSoftware\app"
-C:\nssm\nssm.exe set DonDavidWeb Start SERVICE_AUTO_START
+C:\nssm\nssm.exe install MiPOSWeb "C:\Users\rodri\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.2_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe"
+C:\nssm\nssm.exe set MiPOSWeb AppParameters "artisan serve --host=0.0.0.0 --port=8000"
+C:\nssm\nssm.exe set MiPOSWeb AppDirectory "C:\Users\rodri\OneDrive\COLDEVS\donDavidSoftware\app"
+C:\nssm\nssm.exe set MiPOSWeb Start SERVICE_AUTO_START
 
 REM Servicio print worker
-C:\nssm\nssm.exe install DonDavidPrint "C:\Users\rodri\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.2_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe"
-C:\nssm\nssm.exe set DonDavidPrint AppParameters "artisan app:print-worker"
-C:\nssm\nssm.exe set DonDavidPrint AppDirectory "C:\Users\rodri\OneDrive\COLDEVS\donDavidSoftware\app"
-C:\nssm\nssm.exe set DonDavidPrint Start SERVICE_AUTO_START
+C:\nssm\nssm.exe install MiPOSPrint "C:\Users\rodri\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.2_Microsoft.Winget.Source_8wekyb3d8bbwe\php.exe"
+C:\nssm\nssm.exe set MiPOSPrint AppParameters "artisan app:print-worker"
+C:\nssm\nssm.exe set MiPOSPrint AppDirectory "C:\Users\rodri\OneDrive\COLDEVS\donDavidSoftware\app"
+C:\nssm\nssm.exe set MiPOSPrint Start SERVICE_AUTO_START
 
 REM Iniciar servicios
-C:\nssm\nssm.exe start DonDavidWeb
-C:\nssm\nssm.exe start DonDavidPrint
+C:\nssm\nssm.exe start MiPOSWeb
+C:\nssm\nssm.exe start MiPOSPrint
 ```
 
-Para detener: `C:\nssm\nssm.exe stop DonDavidWeb`
+Para detener: `C:\nssm\nssm.exe stop MiPOSWeb`
 
 ---
 
@@ -104,12 +104,12 @@ Para que la URL LAN no cambie cuando el router reinicia:
 ## Backup manual
 
 1. Accede a **Config → Exportar Backup SQL**.
-2. Se descarga un archivo `dondavid_backup_YYYY-MM-DD_HHMMSS.sql`.
+2. Se descarga un archivo `mipos_backup_YYYY-MM-DD_HHMMSS.sql`.
 3. Si configuraste una ruta OneDrive, también se copia allí automáticamente.
 
 Para restaurar:
 ```bash
-psql -U don_david_user -d don_david -f backup_archivo.sql
+psql -U mi_pos_user -d mi_pos -f backup_archivo.sql
 ```
 
 ---
@@ -118,7 +118,7 @@ psql -U don_david_user -d don_david -f backup_archivo.sql
 
 Abre el puerto 8000 para acceso LAN:
 ```batch
-netsh advfirewall firewall add rule name="DonDavid POS" dir=in action=allow protocol=TCP localport=8000
+netsh advfirewall firewall add rule name="Mi Negocio POS" dir=in action=allow protocol=TCP localport=8000
 ```
 
 ---
@@ -159,6 +159,6 @@ app/
 │       └── EscPosTicketRenderer.php         ← ESC/POS thermal
 ├── database/
 │   ├── migrations/                          ← 12 migraciones
-│   └── seeders/                             ← Admin, GENERIC, productos, settings
+│   └── seeders/                             ← Admin, productos, settings
 └── resources/views/                         ← 11 pantallas Blade + Alpine.js
 ```

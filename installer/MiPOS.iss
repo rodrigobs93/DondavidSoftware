@@ -1,11 +1,11 @@
-; Inno Setup script — Don David POS (standalone Windows installer)
-; Compile with: "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" DonDavid.iss
+; Inno Setup script — Mi Negocio POS (standalone Windows installer)
+; Compile with: "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" MiPOS.iss
 ; (or use build-installer.ps1 which pins paths + fetches the payload)
 
-#define AppName        "Don David POS"
+#define AppName        "Mi Negocio POS"
 #define AppVersion     "1.0.0"
 #define AppPublisher   "COLDEVS"
-#define DefaultRoot    "C:\DonDavid"
+#define DefaultRoot    "C:\MiPOS"
 
 [Setup]
 AppId={{B1E4D1F4-DON1-DAVI-POS0-000000000001}
@@ -17,14 +17,14 @@ DisableDirPage=no
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 OutputDir=output
-OutputBaseFilename=DonDavidSetup-{#AppVersion}
+OutputBaseFilename=MiPOSSetup-{#AppVersion}
 Compression=lzma2/ultra
 SolidCompression=yes
 ArchitecturesAllowed=x64
 ArchitecturesInstallIn64BitMode=x64
 PrivilegesRequired=admin
 WizardStyle=modern
-SetupIconFile=payload\DonDavid.ico
+SetupIconFile=payload\MiPOS.ico
 
 [Languages]
 Name: "es"; MessagesFile: "compiler:Languages\Spanish.isl"
@@ -41,7 +41,7 @@ Source: "payload\composer.phar"; DestDir: "{app}"; Flags: ignoreversion
 ; Launcher scripts
 Source: "scripts\*.ps1"; DestDir: "{app}\scripts"; Flags: ignoreversion
 ; Icon
-Source: "payload\DonDavid.ico"; DestDir: "{app}"; Flags: ignoreversion
+Source: "payload\MiPOS.ico"; DestDir: "{app}"; Flags: ignoreversion
 
 [Dirs]
 Name: "{app}\logs"
@@ -65,7 +65,7 @@ begin
   CustomPage.Add('Email del administrador:', False);
   CustomPage.Values[0] := '8000';
   CustomPage.Values[1] := 'XP-80C';
-  CustomPage.Values[2] := 'admin@dondavid.local';
+  CustomPage.Values[2] := 'admin@minegocio.local';
 
   PasswordPage := CreateInputQueryPage(
     CustomPage.ID,
@@ -78,7 +78,7 @@ begin
   StartupPage := CreateInputOptionPage(
     PasswordPage.ID,
     'Inicio automatico',
-    'Iniciar Don David POS con Windows',
+    'Iniciar Mi Negocio POS con Windows',
     'Puede registrar el acceso directo en el arranque de Windows para que el sistema quede listo al encender el PC.',
     False, False);
   StartupPage.Add('Si, iniciar automaticamente al encender (recomendado en PCs de caja).');
@@ -132,9 +132,9 @@ Filename: "powershell.exe"; \
 [UninstallRun]
 ; Stop services + processes before file removal
 Filename: "powershell.exe"; Parameters: "-NoProfile -ExecutionPolicy Bypass -File ""{app}\scripts\stop.ps1"""; Flags: runhidden; RunOnceId: "stopProcs"
-Filename: "sc.exe"; Parameters: "stop DonDavidPostgres"; Flags: runhidden; RunOnceId: "stopPg"
-Filename: "{app}\pgsql\bin\pg_ctl.exe"; Parameters: "unregister -N DonDavidPostgres"; Flags: runhidden; RunOnceId: "unregPg"
+Filename: "sc.exe"; Parameters: "stop MiPOSPostgres"; Flags: runhidden; RunOnceId: "stopPg"
+Filename: "{app}\pgsql\bin\pg_ctl.exe"; Parameters: "unregister -N MiPOSPostgres"; Flags: runhidden; RunOnceId: "unregPg"
 ; Firewall cleanup (remove all rules with our prefix)
-Filename: "powershell.exe"; Parameters: "-NoProfile -Command ""Get-NetFirewallRule -DisplayName 'Don David POS*' | Remove-NetFirewallRule"""; Flags: runhidden; RunOnceId: "fw"
+Filename: "powershell.exe"; Parameters: "-NoProfile -Command ""Get-NetFirewallRule -DisplayName 'Mi Negocio POS*' | Remove-NetFirewallRule"""; Flags: runhidden; RunOnceId: "fw"
 ; Desktop + startup shortcut cleanup
-Filename: "cmd.exe"; Parameters: "/c del ""%PUBLIC%\Desktop\Don David POS.lnk"" ""%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\StartUp\Don David POS.lnk"""; Flags: runhidden; RunOnceId: "shortcuts"
+Filename: "cmd.exe"; Parameters: "/c del ""%PUBLIC%\Desktop\Mi Negocio POS.lnk"" ""%ALLUSERSPROFILE%\Microsoft\Windows\Start Menu\Programs\StartUp\Mi Negocio POS.lnk"""; Flags: runhidden; RunOnceId: "shortcuts"

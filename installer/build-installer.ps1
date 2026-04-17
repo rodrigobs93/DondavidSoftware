@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Build the Don David POS Windows installer.
+  Build the Mi Negocio POS Windows installer.
 
 .DESCRIPTION
   Steps:
@@ -9,8 +9,8 @@
     2. Copies the Laravel app from ..\app to payload\app and runs
        `composer install --no-dev` inside it.
     3. Copies composer.phar into payload\ (for future in-place upgrades).
-    4. Invokes Inno Setup Compiler (ISCC) on DonDavid.iss to produce
-       installer\output\DonDavidSetup-<version>.exe.
+    4. Invokes Inno Setup Compiler (ISCC) on MiPOS.iss to produce
+       installer\output\MiPOSSetup-<version>.exe.
 
 .PARAMETER ISCCPath
   Path to Inno Setup's ISCC.exe.
@@ -113,12 +113,12 @@ if (-not $SkipApp) {
 }
 
 # ---- 3. Icon ----
-$IconSrc = Join-Path $RepoRoot 'installer\assets\DonDavid.ico'
-$IconDst = Join-Path $PayloadDir 'DonDavid.ico'
+$IconSrc = Join-Path $RepoRoot 'installer\assets\MiPOS.ico'
+$IconDst = Join-Path $PayloadDir 'MiPOS.ico'
 if (Test-Path $IconSrc) {
     Copy-Item $IconSrc $IconDst -Force
 } elseif (-not (Test-Path $IconDst)) {
-    Write-Host 'No icon found at installer\assets\DonDavid.ico — using Windows default.' -ForegroundColor Yellow
+    Write-Host 'No icon found at installer\assets\MiPOS.ico — using Windows default.' -ForegroundColor Yellow
     # Create a 1x1 placeholder so ISCC does not fail
     $stubBytes = [byte[]](0,0,1,0,1,0,1,1,0,0,1,0,32,0,40,0,0,0,22,0,0,0,40,0,0,0,1,0,0,0,2,0,0,0,1,0,32,0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0)
     [System.IO.File]::WriteAllBytes($IconDst, $stubBytes)
@@ -129,7 +129,7 @@ if (-not (Test-Path $ISCCPath)) {
     throw "Inno Setup Compiler not found at '$ISCCPath'. Install Inno Setup 6 or pass -ISCCPath."
 }
 Write-Step 'Compiling installer with ISCC...'
-& $ISCCPath (Join-Path $InstallerDir 'DonDavid.iss')
+& $ISCCPath (Join-Path $InstallerDir 'MiPOS.iss')
 if ($LASTEXITCODE -ne 0) { throw 'ISCC failed' }
 
 Write-Host ''
