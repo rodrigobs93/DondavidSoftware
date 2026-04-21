@@ -16,7 +16,7 @@ class QuickSaleController extends Controller
         $validated = $request->validate([
             'total_amount'   => ['required', 'numeric', 'min:0.01'],
             'payment_method' => ['required', 'in:CASH,CARD,NEQUI,DAVIPLATA,BREB'],
-            'cash_received'  => ['required_if:payment_method,CASH', 'nullable', 'numeric', 'min:0'],
+            'cash_received'  => ['nullable', 'numeric', 'min:0'],
             'notes'          => ['nullable', 'string', 'max:255'],
             'submission_key' => ['nullable', 'string', 'max:64'],
         ]);
@@ -29,13 +29,14 @@ class QuickSaleController extends Controller
             }
         }
 
-        // CASH: cash_received must cover total
-        if ($validated['payment_method'] === 'CASH') {
-            if ((float) ($validated['cash_received'] ?? 0) < (float) $validated['total_amount']) {
-                return response()->json([
-                    'errors' => ['cash_received' => 'El efectivo recibido no puede ser menor al total.'],
-                ], 422);
-            }
+        // CASH: if cash_received is provided, it must cover the total.
+        // If omitted, the sale is finalized without tracking cash/change.
+        if ($validated['payment_method'] === 'CASH'
+            && isset($validated['cash_received'])
+            && (float) $validated['cash_received'] < (float) $validated['total_amount']) {
+            return response()->json([
+                'errors' => ['cash_received' => 'El efectivo recibido no puede ser menor al total.'],
+            ], 422);
         }
 
         $qs = $this->quickSaleService->createQuickSale($validated, auth()->user());
@@ -66,7 +67,8 @@ class QuickSaleController extends Controller
             'total'          => (string) $qs->total_amount,
             'method'         => $qs->payment_method,
             'method_label'   => Payment::$methods[$qs->payment_method] ?? $qs->payment_method,
-            'change'         => (string) ($qs->change_amount ?? '0.00'),
+            'cash_received'  => $qs->cash_received !== null ? (string) $qs->cash_received : null,
+            'change'         => $qs->change_amount !== null ? (string) $qs->change_amount : null,
             'is_cash'        => $qs->payment_method === 'CASH',
         ];
     }

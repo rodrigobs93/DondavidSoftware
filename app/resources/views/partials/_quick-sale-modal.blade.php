@@ -59,7 +59,7 @@
 
                 {{-- Cash received (only for CASH) --}}
                 <div x-show="method === 'CASH'" x-cloak class="mb-4">
-                    <label class="block text-xs font-semibold text-gray-600 mb-1">Efectivo recibido</label>
+                    <label class="block text-xs font-semibold text-gray-600 mb-1">Efectivo recibido <span class="text-gray-400 font-normal">(opcional)</span></label>
                     <div class="relative">
                         <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">$</span>
                         <input type="number" inputmode="numeric" min="0" step="1"
@@ -128,7 +128,7 @@
                         <span class="text-gray-500">Método</span>
                         <span class="font-semibold" x-text="result?.method_label ?? ''"></span>
                     </div>
-                    <div x-show="result?.is_cash" x-cloak class="flex justify-between text-green-700">
+                    <div x-show="result?.is_cash && result?.cash_received" x-cloak class="flex justify-between text-green-700">
                         <span>Cambio</span>
                         <span class="font-bold" x-text="fmt(result?.change ?? 0)"></span>
                     </div>
@@ -209,7 +209,10 @@ function quickSaleModal() {
 
         get cashValid() {
             if (this.method !== 'CASH') return true;
-            return parseFloat(this.cashReceived || 0) >= this.roundedTotal;
+            // Cash received is optional. If left blank, the sale is finalized
+            // without tracking change. If provided, it must cover the total.
+            if (this.cashReceived === '' || this.cashReceived === null) return true;
+            return parseFloat(this.cashReceived) >= this.roundedTotal;
         },
 
         get canSubmit() {
@@ -256,7 +259,7 @@ function quickSaleModal() {
                     notes:          this.notes || null,
                     submission_key: this.submissionKey,
                 };
-                if (this.method === 'CASH') {
+                if (this.method === 'CASH' && this.cashReceived !== '' && this.cashReceived !== null) {
                     body.cash_received = parseFloat(this.cashReceived);
                 }
 

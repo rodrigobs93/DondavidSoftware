@@ -198,10 +198,17 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                                 <span class="text-gray-500">$</span>
                                 <input type="number" x-model.number="newPrice" x-ref="priceInput"
                                     @keydown.escape="editingPrice=false; priceError=''" min="0" step="100"
+                                    data-keyboard="numeric" data-kb-submit-on-done="1"
                                     class="border rounded px-2 py-1 text-sm w-24 text-right"
                                     x-init="$watch('editingPrice', v => { if(v) $nextTick(()=>$refs.priceInput.focus()); })">
-                                <button type="submit" class="pos-btn-success py-1 text-xs">OK</button>
-                                <button type="button" @click="editingPrice=false; priceError=''" class="pos-btn-secondary py-1 text-xs">✕</button>
+                                <button type="submit" :disabled="savingPrice"
+                                        class="pos-btn-success py-1 text-xs disabled:opacity-50">
+                                    <span x-show="!savingPrice">OK</span>
+                                    <span x-show="savingPrice" x-cloak>…</span>
+                                </button>
+                                <button type="button" @click="editingPrice=false; priceError=''"
+                                        :disabled="savingPrice"
+                                        class="pos-btn-secondary py-1 text-xs disabled:opacity-50">✕</button>
                             </form>
                             <span x-show="savedPrice" x-cloak class="text-green-500 text-xs block mt-0.5">✓ Guardado</span>
                             <span x-show="priceError" x-cloak x-text="priceError" class="text-red-500 text-xs block mt-0.5"></span>
@@ -288,29 +295,41 @@ function productRowData(p) {
         product: p,
         // ── Price ──
         editingPrice: false,
+        savingPrice: false,
         savedPrice: false,
         priceError: '',
         price: parseFloat(p.base_price),
         newPrice: parseFloat(p.base_price),
         async savePrice() {
-            this.priceError = '';
+            if (this.savingPrice) return;            // re-entrancy guard
+            // Validate: integer COP only (no decimals)
+            const v = this.newPrice;
+            if (v === '' || v === null || !Number.isInteger(v) || v < 0) {
+                this.priceError = 'Solo enteros (sin decimales).';
+                return;
+            }
+            this.savingPrice = true;
+            this.priceError  = '';
             try {
                 const res = await fetch(`/products/${this.productId}/price`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': csrf() },
-                    body: JSON.stringify({ base_price: this.newPrice }),
+                    body: JSON.stringify({ base_price: v }),
                 });
-                const data = await res.json();
-                if (data.success) {
-                    this.price = this.newPrice;
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.success) {
+                    this.price = v;
                     this.editingPrice = false;
                     this.savedPrice = true;
                     setTimeout(() => this.savedPrice = false, 2000);
                 } else {
+                    // Keep edit mode open and preserve typed value
                     this.priceError = data.message || 'Error al guardar.';
                 }
             } catch {
                 this.priceError = 'Error de conexión.';
+            } finally {
+                this.savingPrice = false;
             }
         },
         // ── Name ──

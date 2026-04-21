@@ -99,6 +99,7 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
         Route::post('/customers/{customer}/prices', [CustomerController::class, 'upsertPrice'])->name('customers.prices.upsert');
+        Route::patch('/customers/{customer}/prices/{product}', [CustomerController::class, 'updatePrice'])->name('customers.prices.update');
         Route::delete('/customers/{customer}/prices/{product}', [CustomerController::class, 'deletePrice'])->name('customers.prices.delete');
 
         // Reports

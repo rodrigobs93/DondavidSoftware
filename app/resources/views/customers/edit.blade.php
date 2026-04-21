@@ -50,12 +50,53 @@
                                       :class="row.product.sale_unit === 'KG' ? 'bg-purple-100 text-purple-700' : 'bg-orange-100 text-orange-700'"
                                       x-text="row.product.sale_unit"></span>
                             </td>
-                            <td class="px-3 py-2 text-right font-semibold text-green-700">
-                                $<span x-text="parseFloat(row.price).toLocaleString('es-CO')"></span>
-                            </td>
-                            <td class="px-3 py-2 text-right">
-                                <button type="button" @click="remove(row)"
-                                    class="text-xs text-gray-400 hover:text-red-600">Quitar</button>
+
+                            {{-- VIEW MODE: price --}}
+                            <template x-if="editingId !== row.id">
+                                <td class="px-3 py-2 text-right font-semibold text-green-700">
+                                    $<span x-text="parseFloat(row.price).toLocaleString('es-CO')"></span>
+                                </td>
+                            </template>
+
+                            {{-- EDIT MODE: price input --}}
+                            <template x-if="editingId === row.id">
+                                <td class="px-3 py-2 text-right">
+                                    <div class="relative inline-block">
+                                        <span class="absolute left-2 top-1/2 -translate-y-1/2 text-gray-400 text-sm">$</span>
+                                        <input type="number" x-model.number="editPrice"
+                                               x-ref="editInput"
+                                               min="0" step="1"
+                                               data-keyboard="numeric"
+                                               @keydown.enter.prevent="saveEdit(row)"
+                                               @keydown.escape="cancelEdit()"
+                                               class="w-28 border rounded pl-6 pr-2 py-1 text-sm text-right">
+                                    </div>
+                                    <p x-show="editError" class="text-xs text-red-600 mt-1" x-text="editError"></p>
+                                </td>
+                            </template>
+
+                            {{-- Action buttons --}}
+                            <td class="px-3 py-2 text-right whitespace-nowrap">
+                                <template x-if="editingId !== row.id">
+                                    <span>
+                                        <button type="button" @click="startEdit(row)"
+                                            class="text-xs text-blue-600 hover:text-blue-800 mr-2">Editar</button>
+                                        <button type="button" @click="remove(row)"
+                                            class="text-xs text-gray-400 hover:text-red-600">Quitar</button>
+                                    </span>
+                                </template>
+                                <template x-if="editingId === row.id">
+                                    <span>
+                                        <button type="button" @click="saveEdit(row)"
+                                            :disabled="editSaving"
+                                            class="text-xs text-white bg-green-600 hover:bg-green-700 px-2 py-1 rounded mr-1 disabled:opacity-50">
+                                            <span x-show="!editSaving">Guardar</span>
+                                            <span x-show="editSaving">…</span>
+                                        </button>
+                                        <button type="button" @click="cancelEdit()"
+                                            class="text-xs text-gray-600 hover:text-gray-800 px-2 py-1">Cancelar</button>
+                                    </span>
+                                </template>
                             </td>
                         </tr>
                     </template>
@@ -131,6 +172,11 @@ function specialPrices(customerId) {
         selectedProduct: null,
         newPrice: '',
         saveMsg: '',
+        // Inline edit state
+        editingId: null,
+        editPrice: '',
+        editError: '',
+        editSaving: false,
 
         async load() {
             const res = await fetch(`/customers/${this.customerId}/prices`);
@@ -178,6 +224,59 @@ function specialPrices(customerId) {
                 headers: { 'X-CSRF-TOKEN': csrf() },
             });
             await this.load();
+        },
+
+        startEdit(row) {
+            this.editingId  = row.id;
+            this.editPrice  = Math.round(parseFloat(row.price));
+            this.editError  = '';
+            this.editSaving = false;
+            this.$nextTick(() => this.$refs.editInput?.focus());
+        },
+
+        cancelEdit() {
+            this.editingId  = null;
+            this.editPrice  = '';
+            this.editError  = '';
+            this.editSaving = false;
+        },
+
+        async saveEdit(row) {
+            this.editError = '';
+            const v = this.editPrice;
+            if (v === '' || v === null || !Number.isInteger(v) || v < 0) {
+                this.editError = 'Solo enteros (sin decimales).';
+                return;
+            }
+            this.editSaving = true;
+            try {
+                const res = await fetch(
+                    `/customers/${this.customerId}/prices/${row.product_id}`,
+                    {
+                        method:  'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept':       'application/json',
+                            'X-CSRF-TOKEN': csrf(),
+                        },
+                        body: JSON.stringify({ price: v }),
+                    }
+                );
+                const data = await res.json().catch(() => ({}));
+                if (!res.ok || !data.success) {
+                    this.editError  = data.message ?? 'Error al guardar.';
+                    this.editSaving = false;
+                    return;
+                }
+                const idx = this.prices.findIndex(r => r.id === row.id);
+                if (idx !== -1) this.prices.splice(idx, 1, data.record);
+                this.cancelEdit();
+                this.saveMsg = '✓ Precio actualizado.';
+                setTimeout(() => this.saveMsg = '', 3000);
+            } catch (_) {
+                this.editError  = 'Error de red.';
+                this.editSaving = false;
+            }
         },
     };
 }

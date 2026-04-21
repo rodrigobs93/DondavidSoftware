@@ -450,7 +450,11 @@ function touchKeyboard() {
                     opts.theme   = 'hg-theme-default pos-kb-numeric';
                     opts.layout  = { default: ['1 2 3', '4 5 6', '7 8 9', '{bksp} 0 {done}'] };
                     opts.display = { '{bksp}': '⌫', '{done}': 'Listo' };
-                    opts.onKeyPress = key => { if (key === '{done}') setTimeout(() => this.close(), 0); };
+                    opts.onKeyPress = key => {
+                        if (key !== '{done}') return;
+                        const target = this.targetEl;
+                        setTimeout(() => { this.submitIfOptedIn(target); this.close(); }, 0);
+                    };
                 } else {
                     opts.theme  = 'hg-theme-default';
                     opts.layout = {
@@ -480,7 +484,11 @@ function touchKeyboard() {
                     };
                     opts.onKeyPress = key => {
                         if (!this.kb) return;
-                        if (key === '{done}') { setTimeout(() => this.close(), 0); return; }
+                        if (key === '{done}') {
+                            const target = this.targetEl;
+                            setTimeout(() => { this.submitIfOptedIn(target); this.close(); }, 0);
+                            return;
+                        }
                         if (key === '{shift}') {
                             const next = this.kb.options.layoutName === 'default' ? 'shift' : 'default';
                             this.kb.setOptions({ layoutName: next });
@@ -509,6 +517,21 @@ function touchKeyboard() {
             if (!this.kb) return;
             try { this.kb.destroy(); } catch (e) { /* ignore */ }
             this.kb = null;
+        },
+
+        // Inputs marked with `data-kb-submit-on-done` get their nearest <form>
+        // submitted when the user taps the keyboard's "Listo ✓" key.
+        submitIfOptedIn(target) {
+            if (!target || !target.dataset || !target.dataset.kbSubmitOnDone) return;
+            const form = target.closest('form');
+            if (!form) return;
+            try {
+                if (typeof form.requestSubmit === 'function') {
+                    form.requestSubmit();
+                } else {
+                    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+                }
+            } catch (e) { /* ignore */ }
         },
 
         close() {

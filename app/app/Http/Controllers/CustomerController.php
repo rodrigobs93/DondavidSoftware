@@ -181,6 +181,22 @@ class CustomerController extends Controller
         return response()->json(['success' => true, 'record' => $cpp]);
     }
 
+    public function updatePrice(Request $request, Customer $customer, Product $product)
+    {
+        $request->validate([
+            'price' => ['required', 'integer', 'min:0'],
+        ]);
+
+        $cpp = CustomerProductPrice::where('customer_id', $customer->id)
+            ->where('product_id', $product->id)
+            ->firstOrFail();
+
+        $cpp->update(['price' => $request->price]);
+        $cpp->load('product:id,name,sale_unit');
+
+        return response()->json(['success' => true, 'record' => $cpp]);
+    }
+
     public function deletePrice(Customer $customer, Product $product)
     {
         CustomerProductPrice::where('customer_id', $customer->id)
