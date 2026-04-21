@@ -27,8 +27,8 @@ class QuickSaleService
 
             $cashReceived = null;
             $changeAmount = null;
-            if ($method === 'CASH') {
-                $cashReceived = bcadd('0', (string) ($data['cash_received'] ?? $total), 2);
+            if ($method === 'CASH' && isset($data['cash_received']) && $data['cash_received'] !== '') {
+                $cashReceived = bcadd('0', (string) $data['cash_received'], 2);
                 $diff         = bcsub($cashReceived, $total, 2);
                 $changeAmount = bccomp($diff, '0', 2) >= 0 ? $diff : '0.00';
             }
@@ -68,13 +68,11 @@ class QuickSaleService
         return number_format($n + 50 - $mod, 2, '.', '');
     }
 
-    public function createPrintJobForQuickSale(QuickSale $qs): PrintJob
+    public function buildQuickSalePayload(QuickSale $qs): array
     {
-        $shop = Setting::shopInfo();
-
-        $payload = [
+        return [
             'type'    => 'quick_sale',
-            'shop'    => $shop,
+            'shop'    => Setting::shopInfo(),
             'receipt' => [
                 'number'        => $qs->receipt_number,
                 'date'          => $qs->sale_date->format('d/m/Y'),
@@ -82,10 +80,15 @@ class QuickSaleService
                 'total'         => (string) $qs->total_amount,
                 'method'        => $qs->payment_method,
                 'method_label'  => Payment::$methods[$qs->payment_method] ?? $qs->payment_method,
-                'cash_received' => (string) ($qs->cash_received ?? $qs->total_amount),
-                'change_amount' => (string) ($qs->change_amount ?? '0.00'),
+                'cash_received' => $qs->cash_received !== null ? (string) $qs->cash_received : null,
+                'change_amount' => $qs->change_amount !== null ? (string) $qs->change_amount : null,
             ],
         ];
+    }
+
+    public function createPrintJobForQuickSale(QuickSale $qs): PrintJob
+    {
+        $payload = $this->buildQuickSalePayload($qs);
 
         $job = PrintJob::create([
             'quick_sale_id' => $qs->id,

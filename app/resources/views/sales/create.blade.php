@@ -628,6 +628,7 @@ function saleForm() {
         },
         get total() {
             const raw = this.rawTotal;
+            if (this.requiresFe) return raw;
             const mod = raw % 50;
             return mod === 0 ? raw : raw + (50 - mod);
         },

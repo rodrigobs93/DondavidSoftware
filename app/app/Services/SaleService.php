@@ -33,7 +33,13 @@ class SaleService
             unset($item);
 
             $deliveryFee = bcadd('0', (string) ($data['delivery_fee'] ?? '0'), 2);
-            $total = $this->roundUp50(bcadd($subtotal, $deliveryFee, 2));
+            $requiresFe = !empty($data['requires_fe']);
+            $feStatus = $requiresFe ? 'PENDING' : 'NONE';
+
+            // FE invoices keep cent-exact totals (legal requirement); cash
+            // tickets round up to the nearest 50 COP for change convenience.
+            $rawTotal = bcadd($subtotal, $deliveryFee, 2);
+            $total    = $requiresFe ? $rawTotal : $this->roundUp50($rawTotal);
 
             $paidAmount = '0';
             foreach ($data['payments'] as $payment) {
@@ -46,9 +52,6 @@ class SaleService
                 bccomp($paidAmount, '0', 2) === 0             => 'PENDING',
                 default                                        => 'PARTIAL',
             };
-
-            $requiresFe = !empty($data['requires_fe']);
-            $feStatus = $requiresFe ? 'PENDING' : 'NONE';
 
             // 3. Insert invoice
             $invoice = Invoice::create([
@@ -151,16 +154,14 @@ class SaleService
         return number_format($n + 50 - $mod, 2, '.', '');
     }
 
-    public function createPrintJob(Invoice $invoice): PrintJob
+    public function buildInvoicePayload(Invoice $invoice): array
     {
         if (!$invoice->relationLoaded('customer')) {
             $invoice->load(['customer', 'items', 'payments']);
         }
 
-        $shop = Setting::shopInfo();
-
-        $payload = [
-            'shop'     => $shop,
+        return [
+            'shop'     => Setting::shopInfo(),
             'invoice'  => [
                 'id'           => $invoice->id,
                 'consecutive'  => $invoice->consecutive,
@@ -198,6 +199,11 @@ class SaleService
                 'amount'       => (string) $p->amount,
             ])->toArray(),
         ];
+    }
+
+    public function createPrintJob(Invoice $invoice): PrintJob
+    {
+        $payload = $this->buildInvoicePayload($invoice);
 
         $job = PrintJob::create([
             'invoice_id' => $invoice->id,

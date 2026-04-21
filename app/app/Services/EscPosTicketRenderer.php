@@ -12,6 +12,15 @@ class EscPosTicketRenderer
     private const FONT_B  = "\x1B\x4D\x01";
     private const WIDTH_B = 56;               // approx — calibrate on real printer
 
+    // ── Side margin (left padding, in chars) ─────────────────────────────────
+    // Shifts every LEFT-aligned line right by N chars AND shrinks the usable
+    // width of dividers / twoCol rows / items / signature by the same N so the
+    // right edge stays flush. Centered sections (shop header, footer) are
+    // auto-centered by the printer and keep the full paper width.
+    // Bump this constant — the ONLY knob you need to touch — if a different
+    // printer model prints too close to the left edge. 0 = no padding.
+    private const SIDE_MARGIN = 2;
+
     // ── ESC/POS commands ──────────────────────────────────────────────────────
     private const INIT         = "\x1B\x40";
     private const CUT          = "\x1D\x56\x41\x00";
@@ -62,35 +71,44 @@ class EscPosTicketRenderer
         if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
         $out .= $this->divider('=', self::WIDTH_A);
 
-        // ── Invoice number & date ─────────────────────────────────────────────
-        $out .= self::ALIGN_LEFT;
-        $out .= "Factura N: {$invoice['consecutive']}" . self::LF;
-        $out .= "Fecha: {$invoice['date']}  {$invoice['time']}" . self::LF;
+        // ── Invoice body — centered as a block on the paper ──────────────────
+        // BODY_WIDTH < WIDTH_B so ALIGN_CENTER produces a small symmetric
+        // margin on each side. The items table uses the same width as the
+        // info/totals/payments band so the whole ticket has one consistent
+        // centered column. Bump $bodyWidth — the only knob — to widen or
+        // narrow the entire centered block.
+        $bodyWidth   = self::WIDTH_B - 2;                           // 54 of 56
+        $tableWidth  = $bodyWidth;
+        $colQty = 7; $colPrice = 11; $colTotal = 11;
+        $colName = $tableWidth - $colQty - $colPrice - $colTotal - 3;
 
-        // ── FE customer info (only when required and non-generic) ─────────────
+        $out .= self::ALIGN_CENTER;
+
+        // Invoice number & date
+        $out .= $this->centeredLine("Factura N: {$invoice['consecutive']}", $bodyWidth);
+        $out .= $this->centeredLine("Fecha: {$invoice['date']}  {$invoice['time']}", $bodyWidth);
+
+        // FE customer info (only when required and non-generic)
         if ($invoice['requires_fe'] && !$customer['is_generic']) {
-            $out .= $this->divider('-', self::WIDTH_B);
-            $out .= 'Cliente: ' . $this->enc($customer['name']) . self::LF;
+            $out .= $this->centeredDivider('-', $bodyWidth);
+            $out .= $this->centeredLine('Cliente: ' . $this->enc($customer['name']), $bodyWidth);
             if (!empty($customer['business_name'])) {
-                $out .= 'Empresa: ' . $this->enc($customer['business_name']) . self::LF;
+                $out .= $this->centeredLine('Empresa: ' . $this->enc($customer['business_name']), $bodyWidth);
             }
             if ($customer['doc_label']) {
-                $out .= 'Doc: ' . $this->enc($customer['doc_label']) . self::LF;
+                $out .= $this->centeredLine('Doc: ' . $this->enc($customer['doc_label']), $bodyWidth);
             }
         }
-        $out .= $this->divider('-', self::WIDTH_B);
+        $out .= $this->centeredDivider('-', $bodyWidth);
 
-        // ── Column headers (font B) ───────────────────────────────────────────
-        // Layout fills full WIDTH_B=56: name(24)+sp+qty(7)+sp+price(11)+sp+total(11) = 56
-        $colName = 24; $colQty = 7; $colPrice = 11; $colTotal = 11;
+        // Items table (narrower than body for visual hierarchy)
+        $out .= str_repeat('-', $tableWidth) . self::LF;
         $out .= $this->pad('DESCRIPCION', $colName)
               . ' ' . $this->padL('CANT',   $colQty)
               . ' ' . $this->padL('P.UNIT', $colPrice)
-              . ' ' . $this->padL('TOTAL',  $colTotal)
-              . self::LF;
-        $out .= $this->divider('-', self::WIDTH_B);
+              . ' ' . $this->padL('TOTAL',  $colTotal) . self::LF;
+        $out .= str_repeat('-', $tableWidth) . self::LF;
 
-        // ── Items ─────────────────────────────────────────────────────────────
         foreach ($items as $item) {
             $name = $item['product_name_snapshot'];
             if (mb_strlen($name) > $colName) {
@@ -103,73 +121,70 @@ class EscPosTicketRenderer
             $out .= $this->enc($this->pad($name, $colName))
                   . ' ' . $this->padL($qty,   $colQty)
                   . ' ' . $this->padL($price, $colPrice)
-                  . ' ' . $this->padL($total, $colTotal)
-                  . self::LF;
+                  . ' ' . $this->padL($total, $colTotal) . self::LF;
         }
-        $out .= $this->divider('-', self::WIDTH_B);
+        $out .= str_repeat('-', $tableWidth) . self::LF;
 
-        // ── Totals (font B + bold, WIDTH_B = full 80 mm width) ───────────────
+        // Totals (font B + bold, body-width centered)
         $out .= self::FONT_B . self::BOLD_ON;
-        $out .= $this->twoCol('Subtotal:', $this->cop($invoice['subtotal']), self::WIDTH_B);
+        $out .= $this->centeredTwoCol('Subtotal:', $this->cop($invoice['subtotal']), $bodyWidth);
         if ((float) $invoice['delivery_fee'] > 0) {
-            $out .= $this->twoCol('Domicilio:', $this->cop($invoice['delivery_fee']), self::WIDTH_B);
+            $out .= $this->centeredTwoCol('Domicilio:', $this->cop($invoice['delivery_fee']), $bodyWidth);
         }
-        $rawTotal = bcadd($invoice['subtotal'], $invoice['delivery_fee'] ?? '0', 2);
-        $adj = bcsub($invoice['total'], $rawTotal, 2);
-        if (bccomp($adj, '0', 2) > 0) {
-            $out .= self::BOLD_OFF;
-            $out .= $this->twoCol('Ajuste redondeo:', $this->cop($adj), self::WIDTH_B);
-            $out .= self::BOLD_ON;
-        }
-        $out .= $this->twoCol('TOTAL:', $this->cop($invoice['total']), self::WIDTH_B);
+        $out .= $this->centeredTwoCol('TOTAL:', $this->cop($invoice['total']), $bodyWidth);
         $out .= self::BOLD_OFF;
-        $out .= $this->divider('=', self::WIDTH_B);
+        $out .= $this->centeredDivider('=', $bodyWidth);
 
-        // ── Payments (font B) ─────────────────────────────────────────────────
-        $out .= self::FONT_B . 'PAGOS:' . self::LF;
+        // Payments (font B)
+        $out .= self::FONT_B . $this->centeredLine('PAGOS:', $bodyWidth);
         foreach ($payments as $p) {
-            $out .= $this->twoCol($p['method_label'], $this->cop($p['amount']), self::WIDTH_B);
+            $out .= $this->centeredTwoCol($p['method_label'], $this->cop($p['amount']), $bodyWidth);
         }
-        $out .= $this->divider('-', self::WIDTH_B);
+        $out .= $this->centeredDivider('-', $bodyWidth);
 
-        // Paid/balance totals: font B + bold, full-width
+        // Paid/balance totals: font B + bold
         $out .= self::FONT_B . self::BOLD_ON;
-        $out .= $this->twoCol('TOTAL PAGADO:', $this->cop($invoice['paid_amount']), self::WIDTH_B);
-        $out .= $this->twoCol('SALDO:',        $this->cop($invoice['balance']),     self::WIDTH_B);
+        $out .= $this->centeredTwoCol('TOTAL PAGADO:', $this->cop($invoice['paid_amount']), $bodyWidth);
+        $out .= $this->centeredTwoCol('SALDO:',        $this->cop($invoice['balance']),     $bodyWidth);
         $out .= self::BOLD_OFF;
-        $out .= $this->divider('=', self::WIDTH_B);
-
-        // ── Signature line (delivery proof) ──────────────────────────────────
-        $out .= self::FONT_B . self::ALIGN_LEFT;
-        $out .= self::LF;
-        $out .= 'Firma recibido:' . self::LF;
-        $out .= self::LF;
-        $out .= str_repeat('_', self::WIDTH_B) . self::LF;
-        $out .= self::LF;
+        $out .= $this->centeredDivider('=', $bodyWidth);
 
         // FE status line REMOVED per requirements
 
-        // ── Footer (build separately so we can push it toward the bottom) ────
-        $footerBlock = '';
-        $footerLines = 0;
+        // ── Bottom block (signature + optional footer) ────────────────────────
+        // Built separately so we can push it toward the tear-off edge with
+        // pre-padding, exactly like the footer used to be handled. The
+        // signature now lives down here (delivery proof at the bottom of the
+        // ticket, where the customer naturally signs).
+        $bottomBlock = '';
+        $bottomLines = 0;
+
+        // Signature
+        $bottomBlock .= self::FONT_B . self::ALIGN_CENTER;
+        $bottomBlock .= self::LF;                                           $bottomLines++;
+        $bottomBlock .= $this->centeredLine('Firma recibido:', $bodyWidth); $bottomLines++;
+        $bottomBlock .= self::LF;                                           $bottomLines++;
+        $bottomBlock .= $this->centeredLine(str_repeat('_', $bodyWidth), $bodyWidth); $bottomLines++;
+        $bottomBlock .= self::LF;                                           $bottomLines++;
+
+        // Footer (optional shop slogan / thank-you, full-paper centered)
         if (!empty($shop['footer'])) {
             $footerEnc = $this->enc($shop['footer']);
-            $footerBlock .= self::FONT_B . self::ALIGN_CENTER;
             foreach (explode(self::LF, wordwrap($footerEnc, self::WIDTH_B, self::LF, true)) as $line) {
-                $footerBlock .= $line . self::LF;
-                $footerLines++;
+                $bottomBlock .= $line . self::LF;
+                $bottomLines++;
             }
-            $footerBlock .= $this->divider('=', self::WIDTH_B);
-            $footerLines++;   // divider counts as one line
+            $bottomBlock .= $this->divider('=', self::WIDTH_B);
+            $bottomLines++;
         }
 
-        // ── Padding: fill lines so footer lands near the tear-off edge ────────
-        $linesBeforeFooter  = substr_count($out, self::LF);
-        $targetBeforeFooter = self::MIN_INVOICE_LINES - $footerLines;
-        $prePad  = max(0, $targetBeforeFooter - $linesBeforeFooter);
+        // ── Padding: fill lines so the bottom block lands near the tear-off ──
+        $linesBeforeBottom  = substr_count($out, self::LF);
+        $targetBeforeBottom = self::MIN_INVOICE_LINES - $bottomLines;
+        $prePad  = max(0, $targetBeforeBottom - $linesBeforeBottom);
         $out .= str_repeat(self::LF, $prePad);
 
-        $out .= $footerBlock;
+        $out .= $bottomBlock;
 
         // Safety: ensure total is at least MIN_INVOICE_LINES
         $totalLines = substr_count($out, self::LF);
@@ -205,38 +220,49 @@ class EscPosTicketRenderer
         if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
         $out .= $this->divider('=', self::WIDTH_A);
 
-        // ── Receipt number & date ("VENTA RÁPIDA" title REMOVED) ─────────────
-        $out .= self::ALIGN_LEFT;
-        $out .= "Recibo N: {$r['number']}" . self::LF;
-        $out .= "Fecha: {$r['date']}  {$r['time']}" . self::LF;
-        $out .= $this->divider('=', self::WIDTH_B);
+        // ── Receipt body — centered as a block on the paper (matches invoice) ─
+        // Two band widths: $bodyWidth for Font B sections, $bodyWidthA for
+        // Font A sections (TOTAL, CAMBIO). They're sized so each band has
+        // roughly the same physical width on paper despite the font swap.
+        $bodyWidth  = self::WIDTH_B - 2;     // 54 of 56 (Font B)
+        $bodyWidthA = self::WIDTH_A - 2;     // 40 of 42 (Font A)
 
-        // ── Total ─────────────────────────────────────────────────────────────
-        $out .= self::FONT_A . self::BOLD_ON
-              . $this->twoCol('TOTAL:', $this->cop($r['total']), self::WIDTH_A)
-              . self::BOLD_OFF;
-        $out .= $this->divider('=', self::WIDTH_A);
+        $out .= self::FONT_B . self::ALIGN_CENTER;
 
-        // ── Payment ───────────────────────────────────────────────────────────
-        $out .= self::FONT_B . 'PAGO:' . self::LF;
-        $out .= $this->twoCol($r['method_label'], $this->cop($r['total']), self::WIDTH_B);
+        // Recibo number & date
+        $out .= $this->centeredLine("Recibo N: {$r['number']}", $bodyWidth);
+        $out .= $this->centeredLine("Fecha: {$r['date']}  {$r['time']}", $bodyWidth);
+        $out .= $this->centeredDivider('=', $bodyWidth);
 
-        if ($r['method'] === 'CASH') {
-            $out .= $this->divider('-', self::WIDTH_B);
-            $out .= $this->twoCol('Recibido:', $this->cop($r['cash_received']), self::WIDTH_B);
-            $out .= self::FONT_A . self::BOLD_ON
-                  . $this->twoCol('CAMBIO:', $this->cop($r['change_amount']), self::WIDTH_A)
-                  . self::BOLD_OFF;
+        // TOTAL (Font A + bold for emphasis)
+        $out .= self::FONT_A . self::BOLD_ON;
+        $out .= $this->centeredTwoCol('TOTAL:', $this->cop($r['total']), $bodyWidthA);
+        $out .= self::BOLD_OFF;
+        $out .= $this->centeredDivider('=', $bodyWidthA);
+
+        // Payment
+        $out .= self::FONT_B;
+        $out .= $this->centeredLine('PAGO:', $bodyWidth);
+        $out .= $this->centeredTwoCol($r['method_label'], $this->cop($r['total']), $bodyWidth);
+
+        if ($r['method'] === 'CASH' && !empty($r['cash_received'])) {
+            $out .= $this->centeredDivider('-', $bodyWidth);
+            $out .= $this->centeredTwoCol('Recibido:', $this->cop($r['cash_received']), $bodyWidth);
+            $out .= self::FONT_A . self::BOLD_ON;
+            $out .= $this->centeredTwoCol('CAMBIO:', $this->cop($r['change_amount'] ?? '0.00'), $bodyWidthA);
+            $out .= self::BOLD_OFF;
+            $out .= $this->centeredDivider('=', $bodyWidthA);
+        } else {
+            $out .= $this->centeredDivider('=', $bodyWidth);
         }
 
-        $out .= $this->divider('=', self::WIDTH_A);
-
+        // Footer (optional shop slogan / thank-you, full-paper centered)
         if (!empty($shop['footer'])) {
-            $out .= self::FONT_B . self::ALIGN_CENTER;
+            $out .= self::FONT_B;
             foreach (explode(self::LF, wordwrap($this->enc($shop['footer']), self::WIDTH_B, self::LF, true)) as $line) {
                 $out .= $line . self::LF;
             }
-            $out .= $this->divider('=', self::WIDTH_B);
+            $out .= $this->centeredDivider('=', $bodyWidth);
         }
 
         $out .= self::LF . self::LF . self::LF;
@@ -352,10 +378,51 @@ class EscPosTicketRenderer
 
     private function divider(string $char, int $width): string
     {
-        return str_repeat($char, $width) . self::LF;
+        return $this->lm() . str_repeat($char, max(0, $width - self::SIDE_MARGIN)) . self::LF;
     }
 
     private function twoCol(string $left, string $right, int $width): string
+    {
+        $w    = max(1, $width - self::SIDE_MARGIN);
+        $rLen = mb_strlen($right);
+        $lMax = $w - $rLen - 1;
+        if (mb_strlen($left) > $lMax) {
+            $left = mb_substr($left, 0, $lMax);
+        }
+        $pad = $w - mb_strlen($left) - $rLen;
+        return $this->lm() . $left . str_repeat(' ', max(1, $pad)) . $right . self::LF;
+    }
+
+    /** Side-margin prefix string (N leading spaces for left-aligned lines). */
+    private function lm(): string
+    {
+        return self::SIDE_MARGIN > 0 ? str_repeat(' ', self::SIDE_MARGIN) : '';
+    }
+
+    /** Emit one left-aligned line: side margin + content + LF. */
+    private function leftLine(string $content): string
+    {
+        return $this->lm() . $content . self::LF;
+    }
+
+    /**
+     * Emit a line for the centered-body strategy: content right-padded with
+     * spaces to exactly $width chars, then LF. Wrap several of these in
+     * ALIGN_CENTER and they all shift by the same amount, so they look
+     * left-aligned within a centered band — the body looks neatly inset
+     * from both paper edges.
+     */
+    private function centeredLine(string $content, int $width): string
+    {
+        return $this->pad($content, $width) . self::LF;
+    }
+
+    private function centeredDivider(string $char, int $width): string
+    {
+        return str_repeat($char, max(0, $width)) . self::LF;
+    }
+
+    private function centeredTwoCol(string $left, string $right, int $width): string
     {
         $rLen = mb_strlen($right);
         $lMax = $width - $rLen - 1;
@@ -453,31 +520,32 @@ class EscPosTicketRenderer
 
         // ── Ticket title & date ───────────────────────────────────────────────
         $out .= self::ALIGN_LEFT;
-        $out .= self::FONT_A . self::BOLD_ON . 'COBRO' . self::BOLD_OFF . self::FONT_B
+        $out .= $this->lm() . self::FONT_A . self::BOLD_ON . 'COBRO' . self::BOLD_OFF . self::FONT_B
               . '  ' . $payload['printDate'] . self::LF;
 
         // ── Customer ──────────────────────────────────────────────────────────
         $out .= $this->divider('-', self::WIDTH_B);
-        $out .= 'Cliente: ' . $this->enc($customer['name']) . self::LF;
+        $out .= $this->leftLine('Cliente: ' . $this->enc($customer['name']));
         if (!empty($customer['business_name'])) {
-            $out .= 'Empresa: ' . $this->enc($customer['business_name']) . self::LF;
+            $out .= $this->leftLine('Empresa: ' . $this->enc($customer['business_name']));
         }
         $out .= $this->divider('=', self::WIDTH_B);
 
         // ── Column header ─────────────────────────────────────────────────────
-        // Cols (Font B, 56): consec(6) + date(9) + total(right,19) + balance(right,19)
-        $header = $this->pad('#FACT', 6)
-                . $this->pad(' FECHA', 10)
-                . $this->padL('TOTAL', 19)
-                . $this->padL('SALDO', 18)
-                . self::LF;
+        // Cols (Font B): consec(6) + date(10) + total(right,19) + balance(right,18) = 53
+        $header = $this->leftLine(
+            $this->pad('#FACT', 6)
+          . $this->pad(' FECHA', 10)
+          . $this->padL('TOTAL', 19)
+          . $this->padL('SALDO', 18)
+        );
 
         $renderRow = function (array $inv): string {
             $consec  = $this->pad('#' . $inv['consecutive'], 6);
             $date    = $this->pad(' ' . $inv['date'], 10);
             $total   = $this->padL($this->cop($inv['total']),   19);
             $balance = $this->padL($this->cop($inv['balance']), 18);
-            return $this->enc($consec) . $date . $total . $balance . self::LF;
+            return $this->leftLine($this->enc($consec) . $date . $total . $balance);
         };
 
         $sections = $payload['sections'] ?? null;
@@ -493,7 +561,7 @@ class EscPosTicketRenderer
                     $out .= self::LF;   // blank line between sections
                 }
                 $first = false;
-                $out .= self::BOLD_ON . $this->enc($section['label']) . self::BOLD_OFF . self::LF;
+                $out .= self::BOLD_ON . $this->leftLine($this->enc($section['label'])) . self::BOLD_OFF;
                 foreach ($section['invoices'] as $inv) {
                     $out .= $renderRow($inv);
                 }
@@ -566,4 +634,5 @@ class EscPosTicketRenderer
         $out .= self::CUT;
         return $out;
     }
+
 }
