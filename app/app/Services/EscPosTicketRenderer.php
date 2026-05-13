@@ -603,12 +603,12 @@ class EscPosTicketRenderer
     // ─────────────────────────────────────────────────────────────────────────
     public function renderMarquilla(array $shop, string $labelText): string
     {
-        // SIZE_DWDH: ESC ! 0x38 = double-width (bit5) + double-height (bit4) + bold (bit3)
-        // With double-width, Font A's 42 columns become 21 usable columns.
-        $SIZE_DWDH  = "\x1B\x21\x38";
-        $CHAR_SPC   = "\x1B\x20\x03";   // ESC SP 3 — 3 extra dots between chars
-        $CHAR_SPC_0 = "\x1B\x20\x00";   // ESC SP 0 — restore normal spacing
-        $LABEL_WRAP = 21;                // columns available with double-width Font A
+        // GS ! 0x22 = 3x width (high nibble) + 3x height (low nibble).
+        // Bold via separate ESC E (GS ! does not carry the bold bit).
+        // With 3x width, Font A's 42 columns become 14 usable columns.
+        $SIZE_3X3   = "\x1D\x21\x22";
+        $SIZE_RESET = "\x1D\x21\x00";
+        $LABEL_WRAP = 14;                // columns available with 3x-width Font A
 
         // Larger logo for labels: 320 dots ≈ 40 mm wide, max 120 dots tall (~15 mm)
         $out  = self::INIT . self::FONT_A;
@@ -617,15 +617,16 @@ class EscPosTicketRenderer
         $out .= self::ALIGN_CENTER;
         $out .= $this->divider('=', self::WIDTH_A);
 
-        // Label text — double-width + double-height + bold, extra letter spacing
-        // wordwrap at LABEL_WRAP to prevent mid-word cuts at the new width
+        // Label text — 3x width + 3x height + bold, default char spacing.
+        // wordwrap with cut=false so multi-word names break only at spaces;
+        // a single overlong word stays whole and lets the printer auto-wrap.
         $sanitized = $this->enc($labelText);
         $wrapped   = explode(self::LF, wordwrap($sanitized, $LABEL_WRAP, self::LF, false));
-        $out .= $SIZE_DWDH . $CHAR_SPC;
+        $out .= $SIZE_3X3 . self::BOLD_ON;
         foreach ($wrapped as $line) {
             $out .= $line . self::LF;
         }
-        $out .= self::SIZE_NML . $CHAR_SPC_0;
+        $out .= $SIZE_RESET . self::BOLD_OFF;
 
         $out .= $this->divider('=', self::WIDTH_A);
 
