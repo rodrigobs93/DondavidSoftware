@@ -15,6 +15,12 @@
     </div>
 
     <div class="bg-white rounded-lg shadow-xl p-8">
+        @if (session('status'))
+            <div class="mb-4 bg-green-50 border border-green-300 text-green-800 text-sm rounded p-3">
+                {{ session('status') }}
+            </div>
+        @endif
+
         <form method="POST" action="/login">
             @csrf
             <div class="mb-4">
@@ -57,6 +63,10 @@
                 Ingresar
             </button>
         </form>
+
+        <p class="text-center text-sm text-gray-500 mt-4">
+            <a href="{{ route('password.forgot') }}" class="text-blue-600 hover:underline">¿Olvidaste tu contraseña?</a>
+        </p>
     </div>
 </div>
 </body>

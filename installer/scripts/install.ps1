@@ -114,6 +114,17 @@ $DbUser = 'mi_pos_user'
 $DbPassFile = Join-Path $InstallRoot 'run\db_password.txt'
 New-Item -ItemType Directory -Force -Path (Split-Path $DbPassFile) | Out-Null
 
+# Master reset password (admin recovery from /forgot-password)
+$MasterPassFile = Join-Path $InstallRoot 'run\master_reset.txt'
+if (Test-Path $MasterPassFile) {
+    $MasterPass = (Get-Content $MasterPassFile -Raw).Trim()
+    Log 'Reusing existing master reset password from run\master_reset.txt'
+} else {
+    $MasterPass = New-RandomPassword 24
+    Set-Content -Path $MasterPassFile -Value $MasterPass -Encoding ascii
+    Log 'Generated new master reset password'
+}
+
 if (Test-Path $DbPassFile) {
     $DbPass = (Get-Content $DbPassFile -Raw).Trim()
     Log 'Reusing existing DB password from run\db_password.txt'
@@ -176,6 +187,7 @@ Set-EnvKey 'DB_DATABASE'           $DbName
 Set-EnvKey 'DB_USERNAME'           $DbUser
 Set-EnvKey 'DB_PASSWORD'           $DbPass
 Set-EnvKey 'THERMAL_PRINTER_NAME'  $PrinterQueue
+Set-EnvKey 'MASTER_RESET_PASSWORD' $MasterPass
 
 # --- 6. Composer deps ---
 if (Test-Path $Composer) {

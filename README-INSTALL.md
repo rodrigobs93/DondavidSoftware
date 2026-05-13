@@ -11,6 +11,31 @@
 
 ---
 
+## ¿Olvidaste tu contraseña?
+
+### Opción A — Desde el navegador (recomendado)
+
+1. En la pantalla de inicio de sesión, click **¿Olvidaste tu contraseña?**
+2. Ingresa la **contraseña maestra**, tu email de administrador, y la nueva contraseña.
+3. La contraseña maestra de tu instalación está en:
+   ```
+   C:\MiPOS\run\master_reset.txt
+   ```
+   También aparece en `C:\MiPOS\app\.env` como `MASTER_RESET_PASSWORD=`.
+4. ¿Quieres cambiarla? Edita `.env`, guarda, y reinicia el servidor (`stop.ps1` → `start.ps1`).
+
+### Opción B — Script en el PC del POS (fallback)
+
+Si no tienes acceso al navegador, ejecuta:
+
+```powershell
+C:\MiPOS\scripts\reset-admin.ps1
+```
+
+Te pedirá el email (por defecto `admin@minegocio.local`) y la nueva contraseña. Internamente corre `php artisan pos:create-admin`. Si tu instalación está en otra ruta, ajusta `$env:MIPOS_ROOT` antes de ejecutar el script.
+
+---
+
 ## Requisitos instalados
 
 | Componente | Versión |

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Auth\LoginController;
+use App\Http\Controllers\Auth\PasswordRecoveryController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CarteraController;
 use App\Http\Controllers\CategoryController;
@@ -19,6 +20,11 @@ use Illuminate\Support\Facades\Route;
 Route::middleware('guest')->group(function () {
     Route::get('/login', [LoginController::class, 'showForm'])->name('login');
     Route::post('/login', [LoginController::class, 'login']);
+
+    Route::get('/forgot-password', [PasswordRecoveryController::class, 'showForm'])
+        ->name('password.forgot');
+    Route::post('/forgot-password', [PasswordRecoveryController::class, 'reset'])
+        ->middleware('throttle:10,1');
 });
 Route::post('/logout', [LoginController::class, 'logout'])->name('logout')->middleware('auth');
 
