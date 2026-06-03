@@ -1069,3 +1069,66 @@ Acceso: http://localhost:8000
   - Guarda `base_price` en cada item para poder revertir si cambia el cliente
   - Al cambiar cliente, re-pricings todos los items ya en el carrito
   - Badge "precio especial" en morado para items con precio especial activo
+
+---
+
+## Sesión 2026-06-03 — Sistema de botones + refinamientos UI/impresión
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `b3e9449` | feat(ui): standardize button system + cartera ticket/dashboard/keyboard refinements |
+
+---
+
+### fix/feat: Sistema de botones unificado (fuente única de verdad)
+
+**Causa raíz encontrada:** los botones se veían "planos/sin estilo" porque las
+clases `.pos-btn-*`, `.form-input` y `.badge-*` estaban definidas con `@apply`
+dentro de un `<style>` normal. La app usa el **Tailwind Play CDN**, que NO
+procesa `@apply` en un `<style>` corriente (solo en `<style type="text/tailwindcss">`),
+así que el navegador descartaba esas reglas como CSS inválido → los botones
+quedaban sin estilo.
+
+**Archivos modificados:**
+- `resources/views/layouts/app.blade.php` — reescrito el sistema de botones como
+  **CSS plano** (renderiza al instante, sin depender del CDN). Variantes
+  `pos-btn-primary/secondary/success/danger/ghost` con altura mínima táctil de
+  44px y estados `hover` / `active` / `:disabled` / `.is-loading` / `:focus-visible`
+  (anillo de foco). Nuevos helpers compactos `.pos-btn-link(-danger)` para acciones
+  en tablas y `.pos-btn-icon(-danger)` para botones de ícono (✕ / eliminar).
+  También se convirtieron `.form-input` y `.badge-*` a CSS plano (misma causa).
+- Barrido de vistas aplicando clases estándar:
+  - `customers/edit.blade.php`, `customers/index.blade.php` — Editar/Quitar/
+    Eliminar/Cancelar → `pos-btn-link` (variante danger en eliminar/quitar)
+  - `categories/index.blade.php` — Activar/Desactivar + Eliminar → `pos-btn-link`
+  - `invoices/index.blade.php` — acción "Ver" → `pos-btn-link`
+  - `partials/_quick-sale-modal.blade.php`, `partials/_marquilla-modal.blade.php`,
+    `sales/create.blade.php` — botones de cierre/eliminar (✕ / ×) → `pos-btn-icon`
+  - `products/index.blade.php` — botón "Filtrar" ahora `:disabled` durante la
+    carga (evita doble envío); muestra "Buscando…" con estado atenuado
+
+**Semántica:** se mantiene `<button>` para acciones y `<a>` solo para navegación.
+Las páginas de auth (login/forgot) se dejaron intactas: son documentos
+independientes con su propio `<head>` y usan utilidades Tailwind directas.
+
+### feat: Tiquete de cobro de Cartera con estilo de factura
+
+**Archivo modificado:**
+- `app/Services/EscPosTicketRenderer.php` — `renderCarteraResumen()` ahora usa la
+  misma estrategia de "cuerpo centrado" que las facturas (`render()`): bloque
+  centrado a 54 col, montos alineados a la derecha, divisores consistentes, y
+  truncado de nombres largos con `...`. El logo, encabezado y pie ya eran
+  compartidos. Sin cambios en el controlador ni en el payload.
+
+### feat: Limpieza de dashboard + teclado táctil en móvil/tablet
+
+**Archivos modificados:**
+- `resources/views/dashboard.blade.php` — removido el panel "Acceso desde celular
+  (misma red WiFi)" con la URL LAN de la pantalla de inicio.
+- `resources/views/layouts/app.blade.php` — el teclado embebido se desactiva en
+  móvil/tablet (viewport ≤1024px o user-agent móvil) mediante un guard
+  `isHandheld()` en `isEligible()`. Los touchscreens de escritorio lo conservan;
+  en dispositivos handheld se usa el teclado nativo del SO y los modales
+  (Marquillas / Venta rápida) funcionan normalmente.
