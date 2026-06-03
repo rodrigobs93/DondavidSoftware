@@ -18,7 +18,7 @@
         <div class="flex items-center justify-between px-5 pt-5 pb-3 border-b border-gray-100">
             <h2 class="text-lg font-bold text-gray-800">🏷 Imprimir Marquillas</h2>
             <button type="button" @click="close()"
-                    class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+                    class="pos-btn-icon">&times;</button>
         </div>
 
         <div class="px-5 py-4 space-y-4 overflow-y-auto flex-1">

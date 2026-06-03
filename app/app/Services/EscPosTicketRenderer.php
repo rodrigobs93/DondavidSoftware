@@ -439,6 +439,13 @@ class EscPosTicketRenderer
         return $s . ($pad > 0 ? str_repeat(' ', $pad) : '');
     }
 
+    /** Truncate with an ellipsis if longer than $max (same as the invoice item names). */
+    private function truncate(string $s, int $max): string
+    {
+        if ($max < 1) return '';
+        return mb_strlen($s) > $max ? mb_substr($s, 0, max(0, $max - 3)) . '...' : $s;
+    }
+
     private function padL(string $s, int $len): string
     {
         $pad = $len - mb_strlen($s);
@@ -518,41 +525,53 @@ class EscPosTicketRenderer
         if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
         $out .= $this->divider('=', self::WIDTH_A);
 
+        // ── Cobro body — centered as a block, same strategy as the invoice ────
+        // BODY_WIDTH < WIDTH_B so ALIGN_CENTER produces a small symmetric margin
+        // on each side; every line is right-padded to $bodyWidth so the whole
+        // ticket reads as one consistent centered column — matching render().
+        $bodyWidth = self::WIDTH_B - 2;                            // 54 of 56
+        $out .= self::ALIGN_CENTER;
+
         // ── Ticket title & date ───────────────────────────────────────────────
-        $out .= self::ALIGN_LEFT;
-        $out .= $this->lm() . self::FONT_A . self::BOLD_ON . 'COBRO' . self::BOLD_OFF . self::FONT_B
+        // Emitted as a raw centered line (printer centers it on the paper, like
+        // the shop-name header) so the mixed Font A / Font B control codes don't
+        // skew the padding-based centering used for the rest of the body.
+        $out .= self::FONT_A . self::BOLD_ON . 'COBRO' . self::BOLD_OFF . self::FONT_B
               . '  ' . $payload['printDate'] . self::LF;
 
         // ── Customer ──────────────────────────────────────────────────────────
-        $out .= $this->divider('-', self::WIDTH_B);
-        $out .= $this->leftLine('Cliente: ' . $this->enc($customer['name']));
+        $out .= $this->centeredDivider('-', $bodyWidth);
+        $custName = $this->enc($customer['name']);
+        $out .= $this->centeredLine('Cliente: ' . $this->truncate($custName, $bodyWidth - 9), $bodyWidth);
         if (!empty($customer['business_name'])) {
-            $out .= $this->leftLine('Empresa: ' . $this->enc($customer['business_name']));
+            $bizName = $this->enc($customer['business_name']);
+            $out .= $this->centeredLine('Empresa: ' . $this->truncate($bizName, $bodyWidth - 9), $bodyWidth);
         }
-        $out .= $this->divider('=', self::WIDTH_B);
+        $out .= $this->centeredDivider('=', $bodyWidth);
 
         // ── Column header ─────────────────────────────────────────────────────
-        // Cols (Font B): consec(6) + date(10) + total(right,19) + balance(right,18) = 53
-        $header = $this->leftLine(
+        // Cols (Font B): consec(6) + date(11) + total(right,19) + balance(right,18) = 54
+        $header = $this->centeredLine(
             $this->pad('#FACT', 6)
-          . $this->pad(' FECHA', 10)
+          . $this->pad(' FECHA', 11)
           . $this->padL('TOTAL', 19)
-          . $this->padL('SALDO', 18)
+          . $this->padL('SALDO', 18),
+            $bodyWidth
         );
 
-        $renderRow = function (array $inv): string {
+        $renderRow = function (array $inv) use ($bodyWidth): string {
             $consec  = $this->pad('#' . $inv['consecutive'], 6);
-            $date    = $this->pad(' ' . $inv['date'], 10);
+            $date    = $this->pad(' ' . $inv['date'], 11);
             $total   = $this->padL($this->cop($inv['total']),   19);
             $balance = $this->padL($this->cop($inv['balance']), 18);
-            return $this->leftLine($this->enc($consec) . $date . $total . $balance);
+            return $this->centeredLine($this->enc($consec) . $date . $total . $balance, $bodyWidth);
         };
 
         $sections = $payload['sections'] ?? null;
 
         // Single column header — printed once regardless of grouping mode
         $out .= $header;
-        $out .= $this->divider('-', self::WIDTH_B);
+        $out .= $this->centeredDivider('-', $bodyWidth);
 
         if ($sections !== null) {
             $first = true;
@@ -561,7 +580,7 @@ class EscPosTicketRenderer
                     $out .= self::LF;   // blank line between sections
                 }
                 $first = false;
-                $out .= self::BOLD_ON . $this->leftLine($this->enc($section['label'])) . self::BOLD_OFF;
+                $out .= self::BOLD_ON . $this->centeredLine($this->enc($section['label']), $bodyWidth) . self::BOLD_OFF;
                 foreach ($section['invoices'] as $inv) {
                     $out .= $renderRow($inv);
                 }
@@ -571,17 +590,17 @@ class EscPosTicketRenderer
                 $out .= $renderRow($inv);
             }
         }
-        $out .= $this->divider('=', self::WIDTH_B);
+        $out .= $this->centeredDivider('=', $bodyWidth);
 
         // ── Totals ────────────────────────────────────────────────────────────
-        $out .= $this->twoCol('Deuda total:', $this->cop($payload['totalDebt']), self::WIDTH_B);
+        $out .= $this->centeredTwoCol('Deuda total:', $this->cop($payload['totalDebt']), $bodyWidth);
         if (bccomp($payload['creditBalance'], '0', 2) > 0) {
-            $out .= $this->twoCol('Saldo a favor:', $this->cop($payload['creditBalance']), self::WIDTH_B);
+            $out .= $this->centeredTwoCol('Saldo a favor:', $this->cop($payload['creditBalance']), $bodyWidth);
         }
         $out .= self::BOLD_ON;
-        $out .= $this->twoCol('NETO A COBRAR:', $this->cop($payload['netAmount']), self::WIDTH_B);
+        $out .= $this->centeredTwoCol('NETO A COBRAR:', $this->cop($payload['netAmount']), $bodyWidth);
         $out .= self::BOLD_OFF;
-        $out .= $this->divider('=', self::WIDTH_B);
+        $out .= $this->centeredDivider('=', $bodyWidth);
 
         // ── Footer ────────────────────────────────────────────────────────────
         if (!empty($shop['footer'])) {

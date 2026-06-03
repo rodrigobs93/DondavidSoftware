@@ -72,11 +72,4 @@
         <div class="text-blue-200 text-sm">Historial de ventas</div>
     </a>
 </div>
-
-{{-- LAN URL info --}}
-<div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-    <h3 class="text-sm font-semibold text-blue-800 mb-1">Acceso desde celular (misma red WiFi)</h3>
-    <p class="font-mono text-blue-700 text-lg">http://{{ $lanIp }}:8000</p>
-    <p class="text-xs text-blue-500 mt-1">Comparte esta URL con otros dispositivos en la red local.</p>
-</div>
 @endsection

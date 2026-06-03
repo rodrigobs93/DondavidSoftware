@@ -10,16 +10,106 @@
     <script src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
     <style>
         [x-cloak] { display: none !important; }
-        .pos-btn { @apply inline-flex items-center px-4 py-2.5 rounded font-semibold text-sm transition-colors; }
-        .pos-btn-primary { @apply pos-btn bg-blue-600 text-white hover:bg-blue-700; }
-        .pos-btn-success { @apply pos-btn bg-green-600 text-white hover:bg-green-700; }
-        .pos-btn-danger  { @apply pos-btn bg-red-600 text-white hover:bg-red-700; }
-        .pos-btn-secondary { @apply pos-btn bg-gray-200 text-gray-700 hover:bg-gray-300; }
-        .form-input { @apply block w-full rounded border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-base py-2.5; }
-        .badge-paid    { @apply px-2 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800; }
-        .badge-partial { @apply px-2 py-0.5 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800; }
-        .badge-pending { @apply px-2 py-0.5 rounded-full text-xs font-semibold bg-red-100 text-red-800; }
-        .badge-fe      { @apply px-2 py-0.5 rounded-full text-xs font-semibold bg-blue-100 text-blue-800; }
+
+        /* ── Button system — single source of truth ────────────────────────
+           Written as plain CSS on purpose: this app uses the Tailwind Play
+           CDN, which does NOT process @apply inside a normal <style> block
+           (only inside <style type="text/tailwindcss">). Plain CSS renders
+           instantly and never depends on the CDN finishing. */
+        .pos-btn, .pos-btn-primary, .pos-btn-secondary, .pos-btn-success,
+        .pos-btn-danger, .pos-btn-ghost {
+            display: inline-flex; align-items: center; justify-content: center;
+            gap: 0.5rem; min-height: 44px; padding: 0.5rem 1rem;
+            border: 1px solid transparent; border-radius: 0.5rem;
+            font-size: 0.875rem; font-weight: 600; line-height: 1.25rem;
+            text-decoration: none; white-space: nowrap; cursor: pointer;
+            -webkit-user-select: none; user-select: none;
+            transition: background-color .15s ease, border-color .15s ease,
+                        color .15s ease, box-shadow .15s ease, transform .05s ease;
+        }
+        .pos-btn:focus-visible, .pos-btn-primary:focus-visible,
+        .pos-btn-secondary:focus-visible, .pos-btn-success:focus-visible,
+        .pos-btn-danger:focus-visible, .pos-btn-ghost:focus-visible {
+            outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, .45);
+        }
+        .pos-btn:active:not(:disabled), .pos-btn-primary:active:not(:disabled),
+        .pos-btn-secondary:active:not(:disabled), .pos-btn-success:active:not(:disabled),
+        .pos-btn-danger:active:not(:disabled), .pos-btn-ghost:active:not(:disabled) {
+            transform: translateY(1px);
+        }
+        /* Disabled & loading — visually muted and click-blocked (prevents
+           duplicate submits while a request is in flight) */
+        .pos-btn:disabled, .pos-btn[disabled], .pos-btn.is-loading,
+        .pos-btn-primary:disabled, .pos-btn-primary[disabled], .pos-btn-primary.is-loading,
+        .pos-btn-secondary:disabled, .pos-btn-secondary[disabled], .pos-btn-secondary.is-loading,
+        .pos-btn-success:disabled, .pos-btn-success[disabled], .pos-btn-success.is-loading,
+        .pos-btn-danger:disabled, .pos-btn-danger[disabled], .pos-btn-danger.is-loading,
+        .pos-btn-ghost:disabled, .pos-btn-ghost[disabled], .pos-btn-ghost.is-loading {
+            opacity: .55; cursor: not-allowed; box-shadow: none; transform: none;
+        }
+
+        .pos-btn-primary { background: #2563eb; color: #fff; }
+        .pos-btn-primary:hover:not(:disabled) { background: #1d4ed8; }
+        .pos-btn-primary:active:not(:disabled) { background: #1e40af; }
+
+        .pos-btn-success { background: #16a34a; color: #fff; }
+        .pos-btn-success:hover:not(:disabled) { background: #15803d; }
+        .pos-btn-success:active:not(:disabled) { background: #166534; }
+        .pos-btn-success:focus-visible { box-shadow: 0 0 0 3px rgba(22, 163, 74, .45); }
+
+        .pos-btn-danger { background: #dc2626; color: #fff; }
+        .pos-btn-danger:hover:not(:disabled) { background: #b91c1c; }
+        .pos-btn-danger:active:not(:disabled) { background: #991b1b; }
+        .pos-btn-danger:focus-visible { box-shadow: 0 0 0 3px rgba(220, 38, 38, .45); }
+
+        .pos-btn-secondary { background: #e5e7eb; color: #374151; border-color: #d1d5db; }
+        .pos-btn-secondary:hover:not(:disabled) { background: #d1d5db; }
+        .pos-btn-secondary:active:not(:disabled) { background: #9ca3af; }
+        .pos-btn-secondary:focus-visible { box-shadow: 0 0 0 3px rgba(107, 114, 128, .4); }
+
+        .pos-btn-ghost { background: transparent; color: #374151; }
+        .pos-btn-ghost:hover:not(:disabled) { background: #f3f4f6; }
+        .pos-btn-ghost:active:not(:disabled) { background: #e5e7eb; }
+        .pos-btn-ghost:focus-visible { box-shadow: 0 0 0 3px rgba(107, 114, 128, .4); }
+
+        /* Compact inline action for tables/cards: button semantics, link weight */
+        .pos-btn-link {
+            display: inline-flex; align-items: center; gap: 0.25rem;
+            min-height: 36px; padding: 0.25rem 0.5rem;
+            background: none; border: none; border-radius: 0.375rem;
+            font-size: 0.8125rem; font-weight: 600; color: #2563eb; cursor: pointer;
+            transition: background-color .15s ease, color .15s ease;
+        }
+        .pos-btn-link:hover:not(:disabled) { background: #eff6ff; color: #1d4ed8; }
+        .pos-btn-link:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(37, 99, 235, .35); }
+        .pos-btn-link:disabled { opacity: .55; cursor: not-allowed; }
+        .pos-btn-link-danger { color: #dc2626; }
+        .pos-btn-link-danger:hover:not(:disabled) { background: #fef2f2; color: #b91c1c; }
+
+        /* Icon button (close ✕, inline delete) — square, touch-sized */
+        .pos-btn-icon {
+            display: inline-flex; align-items: center; justify-content: center;
+            min-width: 44px; min-height: 44px; padding: 0.25rem;
+            background: none; border: none; border-radius: 0.5rem;
+            color: #6b7280; font-size: 1.25rem; line-height: 1; cursor: pointer;
+            transition: background-color .15s ease, color .15s ease;
+        }
+        .pos-btn-icon:hover:not(:disabled) { background: #f3f4f6; color: #1f2937; }
+        .pos-btn-icon:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(107, 114, 128, .4); }
+        .pos-btn-icon-danger { color: #f87171; }
+        .pos-btn-icon-danger:hover:not(:disabled) { background: #fef2f2; color: #dc2626; }
+
+        /* Inputs / badges — same root cause (were @apply in a plain <style>) */
+        .form-input {
+            display: block; width: 100%; border-radius: .375rem; border: 1px solid #d1d5db;
+            box-shadow: 0 1px 2px 0 rgb(0 0 0 / .05); padding: .625rem .75rem;
+            font-size: 1rem; background: #fff;
+        }
+        .form-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 3px rgba(59, 130, 246, .35); }
+        .badge-paid    { display: inline-block; padding: .125rem .5rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; background: #dcfce7; color: #166534; }
+        .badge-partial { display: inline-block; padding: .125rem .5rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; background: #fef9c3; color: #854d0e; }
+        .badge-pending { display: inline-block; padding: .125rem .5rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; background: #fee2e2; color: #991b1b; }
+        .badge-fe      { display: inline-block; padding: .125rem .5rem; border-radius: 9999px; font-size: .75rem; font-weight: 600; background: #dbeafe; color: #1e40af; }
         /* Responsive list tables */
         .pos-table { width: 100%; font-size: 0.875rem; }
         .pos-table thead th { padding: 0.5rem 0.75rem; text-align: left; font-size: 0.75rem; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; background: #f9fafb; }
@@ -353,8 +443,17 @@ function touchKeyboard() {
         kb: null,
         targetEl: null,
 
+        // Embedded keyboard is for desktop touchscreens only. On real
+        // phones/tablets the native OS keyboard works and the embedded one
+        // interferes — so disable it on small/mobile/tablet viewports.
+        isHandheld() {
+            return window.matchMedia('(max-width: 1024px)').matches
+                || /Mobi|Android|iPhone|iPad|iPod|Tablet|Silk|Kindle/i.test(navigator.userAgent);
+        },
+
         isEligible(el) {
             if (!el) return false;
+            if (this.isHandheld()) return false;
             if (el.dataset.keyboard === 'off') return false;
             if (el.readOnly || el.disabled) return false;
 

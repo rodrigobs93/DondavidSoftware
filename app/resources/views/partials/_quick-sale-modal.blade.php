@@ -19,7 +19,7 @@
             <div class="px-5 pt-5 pb-4">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-bold text-gray-800">⚡ Venta Rápida</h2>
-                    <button type="button" @click="close()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                    <button type="button" @click="close()" class="pos-btn-icon">&times;</button>
                 </div>
 
                 {{-- Error banner --}}
@@ -111,7 +111,7 @@
             <div class="px-5 pt-5 pb-4 text-center">
                 <div class="flex items-center justify-between mb-4">
                     <h2 class="text-lg font-bold text-gray-800">Venta registrada</h2>
-                    <button type="button" @click="close()" class="text-gray-400 hover:text-gray-600 text-xl leading-none">&times;</button>
+                    <button type="button" @click="close()" class="pos-btn-icon">&times;</button>
                 </div>
 
                 {{-- Receipt number --}}

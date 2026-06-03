@@ -42,7 +42,7 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                 @endforeach
             </select>
         </div>
-        <button type="submit" class="pos-btn-primary">
+        <button type="submit" class="pos-btn-primary" :disabled="loading" :class="loading && 'is-loading'">
             <span x-show="!loading">Filtrar</span>
             <span x-show="loading" x-cloak>Buscando…</span>
         </button>

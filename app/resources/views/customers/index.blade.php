@@ -106,7 +106,7 @@
                         <td class="text-right space-x-2 whitespace-nowrap">
                             <a x-show="!c.is_generic"
                                :href="'/customers/' + c.id + '/edit'"
-                               class="text-blue-600 hover:text-blue-800 text-xs">Editar</a>
+                               class="pos-btn-link">Editar</a>
                             <form x-show="!c.is_generic"
                                   :action="'/customers/' + c.id" method="POST" class="inline"
                                   @submit.prevent="
@@ -115,7 +115,7 @@
                                   ">
                                 <input type="hidden" name="_token" value="{{ csrf_token() }}">
                                 <input type="hidden" name="_method" value="DELETE">
-                                <button type="submit" class="text-xs text-gray-400 hover:text-red-600">Eliminar</button>
+                                <button type="submit" class="pos-btn-link pos-btn-link-danger">Eliminar</button>
                             </form>
                         </td>
                     </tr>

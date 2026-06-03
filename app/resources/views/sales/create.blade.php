@@ -353,7 +353,7 @@
                             <div class="flex items-center justify-between gap-1">
                                 <span class="text-sm font-medium truncate" x-text="item.product_name"></span>
                                 <button type="button" @click="removeItem(idx)"
-                                        class="text-red-400 hover:text-red-600 text-xl leading-none shrink-0 p-2 min-w-9 min-h-9 flex items-center justify-center">&times;</button>
+                                        class="pos-btn-icon pos-btn-icon-danger shrink-0">&times;</button>
                             </div>
 
                             {{-- Row 2: qty display + price input + total --}}

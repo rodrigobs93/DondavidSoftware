@@ -70,7 +70,7 @@
                     {{-- Toggle active --}}
                     <form method="POST" action="{{ route('categories.toggle', $category) }}" class="inline">
                         @csrf
-                        <button class="text-xs {{ $category->active ? 'text-red-400 hover:text-red-600' : 'text-green-500 hover:text-green-700' }}">
+                        <button class="pos-btn-link {{ $category->active ? 'pos-btn-link-danger' : '' }}">
                             {{ $category->active ? 'Desactivar' : 'Activar' }}
                         </button>
                     </form>
@@ -84,7 +84,7 @@
                           ">
                         @csrf
                         @method('DELETE')
-                        <button type="submit" class="text-xs text-gray-400 hover:text-red-600">Eliminar</button>
+                        <button type="submit" class="pos-btn-link pos-btn-link-danger">Eliminar</button>
                     </form>
                 </td>
             </tr>

@@ -80,9 +80,9 @@
                                 <template x-if="editingId !== row.id">
                                     <span>
                                         <button type="button" @click="startEdit(row)"
-                                            class="text-xs text-blue-600 hover:text-blue-800 mr-2">Editar</button>
+                                            class="pos-btn-link">Editar</button>
                                         <button type="button" @click="remove(row)"
-                                            class="text-xs text-gray-400 hover:text-red-600">Quitar</button>
+                                            class="pos-btn-link pos-btn-link-danger">Quitar</button>
                                     </span>
                                 </template>
                                 <template x-if="editingId === row.id">
@@ -94,7 +94,7 @@
                                             <span x-show="editSaving">…</span>
                                         </button>
                                         <button type="button" @click="cancelEdit()"
-                                            class="text-xs text-gray-600 hover:text-gray-800 px-2 py-1">Cancelar</button>
+                                            class="pos-btn-link">Cancelar</button>
                                     </span>
                                 </template>
                             </td>

@@ -115,7 +115,7 @@
                         </td>
                         <td>
                             <a :href="'/invoices/' + inv.id"
-                               class="text-blue-600 hover:text-blue-800 text-xs">Ver</a>
+                               class="pos-btn-link">Ver</a>
                         </td>
                     </tr>
                 </template>
