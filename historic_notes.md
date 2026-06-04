@@ -1132,3 +1132,55 @@ independientes con su propio `<head>` y usan utilidades Tailwind directas.
   `isHandheld()` en `isEligible()`. Los touchscreens de escritorio lo conservan;
   en dispositivos handheld se usa el teclado nativo del SO y los modales
   (Marquillas / Venta rápida) funcionan normalmente.
+
+---
+
+## Sesión 2026-06-03 (cont.) — Cliente en tiquete + tecla Done única
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `b3bb30e` | fix: always print customer on ticket + single touch-keyboard Done |
+
+---
+
+### fix: el tiquete de factura no imprimía Cliente / Empresa
+
+**Causa raíz:** en `app/Services/EscPosTicketRenderer.php`, `render()` imprimía el
+bloque Cliente/Empresa **solo** cuando `requires_fe && !is_generic`. Las ventas
+normales POS (sin FE) — el caso común — nunca mostraban el cliente. El payload
+siempre traía los datos (`SaleService::buildInvoicePayload`); el problema era la
+plantilla.
+
+**Fix (`app/Services/EscPosTicketRenderer.php`):**
+- Ahora **siempre** se imprime `Cliente: <nombre>`; para clientes genéricos se
+  imprime `Cliente: GENERICO` (el registro semilla se llama "CLIENTE GENÉRICO",
+  que se leería redundante).
+- `Empresa: <business_name>` se imprime solo cuando existe.
+- La línea `Doc:` sigue limitada a facturas con FE y cliente no genérico (es fiscal).
+- Nuevo helper `centeredWrapped()` para envolver (word-wrap) nombres/empresas
+  largos sin cortes a mitad de palabra.
+- Aplica a ventas nuevas y a reimpresiones (mismo renderer vía `createPrintJob`).
+
+### fix: una sola tecla "Listo ✓" en el teclado táctil (sin impresión accidental)
+
+**Bug previo:** tocar la tecla `{done}` del teclado embebido en `/sales/new`
+cerraba el teclado en un `setTimeout(0)`, y el "ghost click" táctil caía sobre el
+botón Finalizar → imprimía sin querer (tap-through, no era z-index ni
+`data-kb-submit-on-done`).
+
+**Fix (`resources/views/layouts/app.blade.php`):**
+- Se eliminó la tecla `{done}` de los layouts numérico y QWERTY/shift/numbers.
+  El único Done es el botón superior `#kb-close-btn` ("Listo ✓"), reestilizado
+  como botón primario verde y **solo cierra** (nunca envía formularios ni imprime).
+- Para no descuadrar la grilla al quitar Done, se colocó una tecla `{placeholder}`
+  oculta y no interactiva en cada posición donde estaba Done: CSS
+  `visibility:hidden; pointer-events:none`, más `aria-hidden="true"` y
+  `tabindex="-1"` vía `buttonAttributes`. Mantiene el ancho/alto exacto.
+- Se eliminaron `submitIfOptedIn()` / `suppressNextClick()` / el campo de store
+  `lastClosedAt` (quedaron sin uso al quitar `{done}`) y el atributo inerte
+  `data-kb-submit-on-done` en `products/index.blade.php` (el precio se guarda con
+  su botón **OK**).
+- `submitForm()` en `sales/create.blade.php`: guard simplificado a bloquear el
+  envío **solo mientras el teclado está abierto** (`$store.keyboard.open`).
