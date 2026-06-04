@@ -88,16 +88,17 @@ class EscPosTicketRenderer
         $out .= $this->centeredLine("Factura N: {$invoice['consecutive']}", $bodyWidth);
         $out .= $this->centeredLine("Fecha: {$invoice['date']}  {$invoice['time']}", $bodyWidth);
 
-        // FE customer info (only when required and non-generic)
-        if ($invoice['requires_fe'] && !$customer['is_generic']) {
-            $out .= $this->centeredDivider('-', $bodyWidth);
-            $out .= $this->centeredLine('Cliente: ' . $this->enc($customer['name']), $bodyWidth);
-            if (!empty($customer['business_name'])) {
-                $out .= $this->centeredLine('Empresa: ' . $this->enc($customer['business_name']), $bodyWidth);
-            }
-            if ($customer['doc_label']) {
-                $out .= $this->centeredLine('Doc: ' . $this->enc($customer['doc_label']), $bodyWidth);
-            }
+        // Customer info — always printed (name + business name when present).
+        // The Doc line is fiscal, so it stays limited to FE invoices for a
+        // non-generic customer. Long values wrap (no mid-word cuts).
+        $out .= $this->centeredDivider('-', $bodyWidth);
+        $customerName = $customer['is_generic'] ? 'GENERICO' : $this->enc($customer['name']);
+        $out .= $this->centeredWrapped('Cliente: ' . $customerName, $bodyWidth);
+        if (!empty($customer['business_name'])) {
+            $out .= $this->centeredWrapped('Empresa: ' . $this->enc($customer['business_name']), $bodyWidth);
+        }
+        if ($invoice['requires_fe'] && !$customer['is_generic'] && !empty($customer['doc_label'])) {
+            $out .= $this->centeredWrapped('Doc: ' . $this->enc($customer['doc_label']), $bodyWidth);
         }
         $out .= $this->centeredDivider('-', $bodyWidth);
 
@@ -420,6 +421,19 @@ class EscPosTicketRenderer
     private function centeredDivider(string $char, int $width): string
     {
         return str_repeat($char, max(0, $width)) . self::LF;
+    }
+
+    /**
+     * Emit content as one or more centered-body lines, word-wrapped to $width
+     * so long names/values break cleanly across lines instead of overflowing.
+     */
+    private function centeredWrapped(string $content, int $width): string
+    {
+        $out = '';
+        foreach (explode(self::LF, wordwrap($content, $width, self::LF, true)) as $line) {
+            $out .= $this->centeredLine($line, $width);
+        }
+        return $out;
     }
 
     private function centeredTwoCol(string $left, string $right, int $width): string

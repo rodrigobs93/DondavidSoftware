@@ -212,19 +212,6 @@
         transform: translateY(2px);
     }
 
-    /* ── Done / Listo — green primary action ── */
-    .hg-theme-default .hg-button[data-skbtn="{done}"] {
-        background: #16a34a;
-        color: #fff;
-        font-size: 0.95rem;
-        box-shadow: 0 3px 0 #15803d;
-    }
-    .hg-theme-default .hg-button[data-skbtn="{done}"]:active {
-        background: #15803d;
-        box-shadow: 0 1px 0 #166534;
-        transform: translateY(2px);
-    }
-
     /* ── Numeric numpad — taller keys ── */
     .pos-kb-numeric .hg-button {
         height: 68px;
@@ -233,20 +220,34 @@
         border-radius: 9px;
     }
     .pos-kb-numeric .hg-button[data-skbtn="{bksp}"] { font-size: 1.3rem; }
-    .pos-kb-numeric .hg-button[data-skbtn="{done}"] { font-size: 1rem; font-weight: 700; }
 
-    /* ── "Listo ✓" close button at top of drawer ── */
-    #kb-close-btn {
-        font-size: 0.875rem;
-        font-weight: 600;
-        color: #94a3b8;
-        padding: 0.25rem 1rem;
-        border: 1px solid #334155;
-        border-radius: 6px;
+    /* ── Hidden placeholder — reserves the removed Done slot so the grid
+       stays identical; invisible and non-interactive ── */
+    .hg-theme-default .hg-button[data-skbtn="{placeholder}"] {
+        visibility: hidden;
+        pointer-events: none;
         background: transparent;
-        line-height: 1.75rem;
+        box-shadow: none;
     }
-    #kb-close-btn:active { background: #334155; color: #f1f5f9; }
+
+    /* ── "Listo ✓" — the SINGLE Done control (top of drawer), green primary ── */
+    #kb-close-btn {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #fff;
+        padding: 0.4rem 1.5rem;
+        border: none;
+        border-radius: 7px;
+        background: #16a34a;
+        box-shadow: 0 3px 0 #15803d;
+        line-height: 1.5rem;
+        touch-action: manipulation;
+    }
+    #kb-close-btn:active {
+        background: #15803d;
+        box-shadow: 0 1px 0 #166534;
+        transform: translateY(2px);
+    }
     </style>
     @endif
 </head>
@@ -546,48 +547,53 @@ function touchKeyboard() {
                 };
 
                 if (isNumeric) {
+                    // No real {done} key — closing is handled solely by the top
+                    // "Listo ✓" button. A hidden {placeholder} reserves the old
+                    // Done slot so removing it doesn't shift the other keys.
                     opts.theme   = 'hg-theme-default pos-kb-numeric';
-                    opts.layout  = { default: ['1 2 3', '4 5 6', '7 8 9', '{bksp} 0 {done}'] };
-                    opts.display = { '{bksp}': '⌫', '{done}': 'Listo' };
-                    opts.onKeyPress = key => {
-                        if (key !== '{done}') return;
-                        const target = this.targetEl;
-                        setTimeout(() => { this.submitIfOptedIn(target); this.close(); }, 0);
-                    };
+                    opts.layout  = { default: ['1 2 3', '4 5 6', '7 8 9', '{bksp} 0 {placeholder}'] };
+                    opts.display = { '{bksp}': '⌫', '{placeholder}': ' ' };
+                    opts.buttonAttributes = [
+                        { attribute: 'aria-hidden', value: 'true', buttons: '{placeholder}' },
+                        { attribute: 'tabindex',    value: '-1',   buttons: '{placeholder}' },
+                    ];
                 } else {
+                    // No real {done} key — closing is handled solely by the top
+                    // "Listo ✓" button. A hidden {placeholder} reserves the old
+                    // Done slot so removing it doesn't shift the other keys.
                     opts.theme  = 'hg-theme-default';
                     opts.layout = {
                         default: [
                             'q w e r t y u i o p {bksp}',
                             'a s d f g h j k l',
                             '{shift} z x c v b n m {shift}',
-                            '{numbers} {space} {done}',
+                            '{numbers} {space} {placeholder}',
                         ],
                         shift: [
                             'Q W E R T Y U I O P {bksp}',
                             'A S D F G H J K L',
                             '{shift} Z X C V B N M {shift}',
-                            '{numbers} {space} {done}',
+                            '{numbers} {space} {placeholder}',
                         ],
                         numbers: [
                             '1 2 3 4 5 6 7 8 9 0 {bksp}',
                             '- / : ; ( ) $ & @ "',
-                            ". , ? ! ' {done}",
-                            '{abc} {space} {done}',
+                            ". , ? ! ' {placeholder}",
+                            '{abc} {space} {placeholder}',
                         ],
                     };
                     opts.display = {
-                        '{bksp}': '⌫', '{done}': 'Listo ✓',
+                        '{bksp}': '⌫',
                         '{shift}': '⇧', '{space}': '␣',
                         '{numbers}': '123', '{abc}': 'ABC',
+                        '{placeholder}': ' ',
                     };
+                    opts.buttonAttributes = [
+                        { attribute: 'aria-hidden', value: 'true', buttons: '{placeholder}' },
+                        { attribute: 'tabindex',    value: '-1',   buttons: '{placeholder}' },
+                    ];
                     opts.onKeyPress = key => {
                         if (!this.kb) return;
-                        if (key === '{done}') {
-                            const target = this.targetEl;
-                            setTimeout(() => { this.submitIfOptedIn(target); this.close(); }, 0);
-                            return;
-                        }
                         if (key === '{shift}') {
                             const next = this.kb.options.layoutName === 'default' ? 'shift' : 'default';
                             this.kb.setOptions({ layoutName: next });
@@ -616,21 +622,6 @@ function touchKeyboard() {
             if (!this.kb) return;
             try { this.kb.destroy(); } catch (e) { /* ignore */ }
             this.kb = null;
-        },
-
-        // Inputs marked with `data-kb-submit-on-done` get their nearest <form>
-        // submitted when the user taps the keyboard's "Listo ✓" key.
-        submitIfOptedIn(target) {
-            if (!target || !target.dataset || !target.dataset.kbSubmitOnDone) return;
-            const form = target.closest('form');
-            if (!form) return;
-            try {
-                if (typeof form.requestSubmit === 'function') {
-                    form.requestSubmit();
-                } else {
-                    form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
-                }
-            } catch (e) { /* ignore */ }
         },
 
         close() {

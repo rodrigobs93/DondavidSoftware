@@ -198,7 +198,7 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                                 <span class="text-gray-500">$</span>
                                 <input type="number" x-model.number="newPrice" x-ref="priceInput"
                                     @keydown.escape="editingPrice=false; priceError=''" min="0" step="100"
-                                    data-keyboard="numeric" data-kb-submit-on-done="1"
+                                    data-keyboard="numeric"
                                     class="border rounded px-2 py-1 text-sm w-24 text-right"
                                     x-init="$watch('editingPrice', v => { if(v) $nextTick(()=>$refs.priceInput.focus()); })">
                                 <button type="submit" :disabled="savingPrice"

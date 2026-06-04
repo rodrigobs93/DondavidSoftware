@@ -855,6 +855,10 @@ function saleForm() {
         },
 
         submitForm(e) {
+            // Safety: never finalize/print while the embedded touch keyboard is
+            // open — only an explicit tap on the Finalizar button should print.
+            const kb = this.$store.keyboard;
+            if (kb && kb.open) return;
             this.onFeToggle();
             if (!this.canSubmit || this.submitting) return;
             this.submitting = true;
