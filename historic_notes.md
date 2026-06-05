@@ -1184,3 +1184,65 @@ botón Finalizar → imprimía sin querer (tap-through, no era z-index ni
   su botón **OK**).
 - `submitForm()` en `sales/create.blade.php`: guard simplificado a bloquear el
   envío **solo mientras el teclado está abierto** (`$store.keyboard.open`).
+
+---
+
+## Sesión 2026-06-04 — Mensajes de validación en español + iconos + layout de venta
+
+### Commits de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `b877775` | feat(i18n): Spanish validation messages (replace raw validation.* keys) |
+| `5ead238` | feat(ui): icon components + pencil on price edit + heart on saldo a favor |
+| `d44b1bf` | feat(ui): widen /sales/new right column + larger cart text (desktop) |
+
+---
+
+### feat: mensajes de validación en español (adiós a `validation.unique`)
+
+**Causa raíz:** la app corre con `APP_LOCALE=es` **y** `APP_FALLBACK_LOCALE=es`,
+pero **no existía un directorio `lang/`**. Laravel solo trae mensajes en inglés en
+`vendor`, así que toda clave `validation.*` se mostraba cruda (p. ej. al guardar un
+cliente con número de identificación duplicado salía literalmente
+`validation.unique`). Afectaba **todos** los formularios.
+
+**Fix (Laravel 12, lang path = `app/lang/`):**
+- Nuevo `app/lang/es/validation.php` (traducción completa al español) con:
+  - **`attributes`** — nombres de campo legibles (`doc_number`→"número de
+    identificación", `email`→"correo electrónico", `base_price`→"precio",
+    `amount`→"monto", etc.) para que los mensajes por defecto se lean naturales.
+  - **`custom`** — `doc_number.unique` → "Ya existe un cliente con este número de
+    identificación."; `name.unique` → "Ya existe una categoría con ese nombre."
+- `resources/views/customers/_form.blade.php` — se agregó `@error` en línea para
+  `doc_number` y `doc_type` (antes el error de duplicado solo salía en el resumen
+  superior del layout). El input ya se preservaba vía `old()`.
+- Es un arreglo a nivel de locale → también corrige Productos, Ventas, Cartera y
+  precios especiales. Verificado con prueba real contra la BD: el duplicado emite
+  el mensaje personalizado.
+- Pendiente opcional (no hecho): copiar el archivo a `installer/payload/` al
+  reconstruir el instalador; opcionalmente `APP_FALLBACK_LOCALE=en` como red de
+  seguridad.
+
+### feat: iconos (set reutilizable + lápiz en precio + corazón en saldo a favor)
+
+- Nuevos **componentes Blade anónimos** en `resources/views/components/icon/`
+  (SVG Heroicons en línea, sin librería ni build): `pencil`, `heart`, `check`,
+  `x-mark`. Uso: `<x-icon.pencil class="w-4 h-4 text-gray-400" />` (color por
+  `text-*` = currentColor, tamaño por `w-/h-*`; base `inline-block shrink-0`).
+- `products/index.blade.php` — lápiz junto a cada precio (un toque abre la edición;
+  el doble clic sigue funcionando); en modo edición los botones OK/✕ pasan a iconos
+  check / x-mark. El móvil (tarjetas) no edita precio → sin cambios.
+- `cartera/customer.blade.php` — corazón sólido antes de la etiqueta "Saldo a
+  favor", verde cuando el cliente tiene saldo a favor y gris cuando es cero.
+- Solo iconos; sin cambios de lógica.
+
+### feat: /sales/new — columna derecha más ancha + texto del carrito más grande
+
+- Solo escritorio: grilla `md:grid-cols-3` → `md:grid-cols-5`; izquierda
+  `col-span-2`→`3` (60%), derecha (carrito/resumen/pagos/finalizar)
+  `col-span-1`→`2` (40%). El apilado en móvil/tablet no cambia.
+- Tipografía del carrito a `text-base` (nombre, precio unitario, total de línea) y
+  cantidad a `text-sm`. Columnas numéricas ensanchadas (`w-20` cantidad, `w-28`
+  total, `shrink-0`) e input de precio `flex-1 min-w-0` para evitar desbordes.
+  Sin cambios de cálculo/guardado.
