@@ -34,12 +34,12 @@
         @csrf
         <input type="hidden" name="submission_key" :value="submissionKey">
 
-        <div class="md:grid md:grid-cols-3 md:gap-6 pb-28 md:pb-0">
+        <div class="md:grid md:grid-cols-5 md:gap-6 pb-28 md:pb-0">
 
             {{-- ===========================================================
-                 LEFT COLUMN: md:col-span-2
+                 LEFT COLUMN: md:col-span-3 (60%)
                  =========================================================== --}}
-            <div class="md:col-span-2 space-y-4">
+            <div class="md:col-span-3 space-y-4">
 
                 {{-- --- Customer card ---------------------------------------- --}}
                 <div class="bg-white rounded-lg shadow p-4"
@@ -326,9 +326,9 @@
             </div>{{-- end left column --}}
 
             {{-- ===========================================================
-                 RIGHT COLUMN: md:col-span-1 (sticky cart + payments)
+                 RIGHT COLUMN: md:col-span-2 (40%) (sticky cart + payments)
                  =========================================================== --}}
-            <div class="md:col-span-1 md:sticky md:top-4 md:self-start space-y-3"
+            <div class="md:col-span-2 md:sticky md:top-4 md:self-start space-y-3"
                  :class="activeTab==='pagos' ? 'block' : 'hidden md:block'">
 
                 {{-- Cart items --}}
@@ -342,7 +342,7 @@
                     </div>
 
                     <template x-for="(item, idx) in items" :key="item._key">
-                        <div class="py-2 border-b last:border-0">
+                        <div class="py-2.5 border-b last:border-0">
                             <input type="hidden" :name="'items['+idx+'][product_id]'"   :value="item.product_id">
                             <input type="hidden" :name="'items['+idx+'][product_name]'" :value="item.product_name">
                             <input type="hidden" :name="'items['+idx+'][sale_unit]'"    :value="item.sale_unit">
@@ -351,7 +351,7 @@
 
                             {{-- Row 1: name + remove --}}
                             <div class="flex items-center justify-between gap-1">
-                                <span class="text-sm font-medium truncate" x-text="item.product_name"></span>
+                                <span class="text-base font-medium truncate" x-text="item.product_name"></span>
                                 <button type="button" @click="removeItem(idx)"
                                         class="pos-btn-icon pos-btn-icon-danger shrink-0">&times;</button>
                             </div>
@@ -359,24 +359,24 @@
                             {{-- Row 2: qty display + price input + total --}}
                             <div class="flex items-center gap-2 mt-1">
                                 {{-- Qty display --}}
-                                <span class="text-xs text-gray-500 w-16 text-center"
+                                <span class="text-sm text-gray-500 w-20 text-center shrink-0"
                                       x-text="item.sale_unit==='KG' ? formatGrams(item.quantity)+' g' : item.quantity+' und'"></span>
 
                                 {{-- Unit price (editable) --}}
-                                <div class="flex items-center gap-0.5 flex-1">
-                                    <span class="text-xs text-gray-400">$</span>
+                                <div class="flex items-center gap-0.5 flex-1 min-w-0">
+                                    <span class="text-sm text-gray-400">$</span>
                                     <input type="number" x-model.number="item.unit_price"
                                            @input="computeLineTotal(item)"
                                            inputmode="numeric" data-keyboard="numeric"
                                            min="0" step="100" placeholder="0"
-                                           class="border rounded px-2 py-2 text-sm text-right w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
+                                           class="border rounded px-2 py-2 text-base text-right w-full focus:outline-none focus:ring-1 focus:ring-blue-400"
                                            :class="item.unit_price !== item.base_price ? 'border-purple-400 text-purple-700' : ''">
                                     <span x-show="item.unit_price !== item.base_price"
                                           class="text-purple-500 text-xs font-bold" title="Precio modificado">*</span>
                                 </div>
 
                                 {{-- Line total --}}
-                                <span class="text-sm font-semibold text-gray-700 font-mono w-20 text-right"
+                                <span class="text-base font-semibold text-gray-700 font-mono w-28 text-right shrink-0"
                                       x-text="'$'+formatNum(item.line_total)"></span>
                             </div>
                         </div>
