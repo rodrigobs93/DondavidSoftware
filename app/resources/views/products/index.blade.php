@@ -190,10 +190,17 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                         </td>
                         {{-- Price --}}
                         <td class="px-4 py-3 text-right">
-                            <span x-show="!editingPrice" @dblclick="editingPrice=true"
-                                  class="font-semibold cursor-pointer hover:text-blue-600"
-                                  title="Doble clic para editar precio"
-                                  x-text="formatCOP(price)"></span>
+                            <span x-show="!editingPrice" class="inline-flex items-center gap-1.5 justify-end">
+                                <span @dblclick="editingPrice=true"
+                                      class="font-semibold cursor-pointer hover:text-blue-600"
+                                      title="Doble clic para editar precio"
+                                      x-text="formatCOP(price)"></span>
+                                <button type="button" @click="editingPrice=true"
+                                        title="Editar precio" aria-label="Editar precio"
+                                        class="text-gray-400 hover:text-blue-600 p-1.5 -my-1.5 rounded">
+                                    <x-icon.pencil class="w-4 h-4" />
+                                </button>
+                            </span>
                             <form x-show="editingPrice" x-cloak @submit.prevent="savePrice()" class="flex items-center gap-1 justify-end">
                                 <span class="text-gray-500">$</span>
                                 <input type="number" x-model.number="newPrice" x-ref="priceInput"
@@ -202,13 +209,15 @@ $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->nam
                                     class="border rounded px-2 py-1 text-sm w-24 text-right"
                                     x-init="$watch('editingPrice', v => { if(v) $nextTick(()=>$refs.priceInput.focus()); })">
                                 <button type="submit" :disabled="savingPrice"
+                                        title="Guardar" aria-label="Guardar"
                                         class="pos-btn-success py-1 text-xs disabled:opacity-50">
-                                    <span x-show="!savingPrice">OK</span>
+                                    <span x-show="!savingPrice"><x-icon.check class="w-4 h-4" /></span>
                                     <span x-show="savingPrice" x-cloak>…</span>
                                 </button>
                                 <button type="button" @click="editingPrice=false; priceError=''"
                                         :disabled="savingPrice"
-                                        class="pos-btn-secondary py-1 text-xs disabled:opacity-50">✕</button>
+                                        title="Cancelar" aria-label="Cancelar"
+                                        class="pos-btn-secondary py-1 text-xs disabled:opacity-50"><x-icon.x-mark class="w-4 h-4" /></button>
                             </form>
                             <span x-show="savedPrice" x-cloak class="text-green-500 text-xs block mt-0.5">✓ Guardado</span>
                             <span x-show="priceError" x-cloak x-text="priceError" class="text-red-500 text-xs block mt-0.5"></span>

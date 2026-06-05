@@ -49,8 +49,11 @@
         </div>
         <div class="flex sm:flex-col items-center justify-between sm:justify-start sm:text-center p-3 rounded-lg border"
              :class="creditBalance > 0 ? 'bg-green-50 border-green-100' : 'bg-gray-50 border-gray-100'">
-            <div class="text-xs font-medium uppercase tracking-wide"
-                 :class="creditBalance > 0 ? 'text-green-500' : 'text-gray-400'">Saldo a favor</div>
+            <div class="text-xs font-medium uppercase tracking-wide inline-flex items-center gap-1"
+                 :class="creditBalance > 0 ? 'text-green-500' : 'text-gray-400'">
+                <x-icon.heart class="w-3.5 h-3.5" />
+                <span>Saldo a favor</span>
+            </div>
             <div class="text-2xl font-bold font-mono"
                  :class="creditBalance > 0 ? 'text-green-700' : 'text-gray-400'"
                  x-text="fmt(creditBalance)"></div>
