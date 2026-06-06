@@ -14,6 +14,9 @@ use App\Http\Controllers\MarquillaController;
 use App\Http\Controllers\QuickSaleController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SupplierInvoiceController;
+use App\Http\Controllers\SupplierPaymentController;
 use Illuminate\Support\Facades\Route;
 
 // ─── Auth ───────────────────────────────────────────────────────────────────
@@ -121,5 +124,21 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::post('/backups/test-print', [BackupController::class, 'testPrint'])->name('backups.test-print');
         Route::post('/backups/logo', [BackupController::class, 'uploadLogo'])->name('backups.logo.upload');
         Route::delete('/backups/logo', [BackupController::class, 'deleteLogo'])->name('backups.logo.delete');
+
+        // ─── Suppliers / Cuentas por Pagar (module-gated) ──────────────────────
+        Route::middleware('suppliers')->group(function () {
+            Route::get('/suppliers',                 [SupplierController::class, 'index'])->name('suppliers.index');
+            Route::get('/suppliers/create',          [SupplierController::class, 'create'])->name('suppliers.create');
+            Route::post('/suppliers',                [SupplierController::class, 'store'])->name('suppliers.store');
+            Route::get('/suppliers/{supplier}',      [SupplierController::class, 'show'])->name('suppliers.show')->where('supplier', '[0-9]+');
+            Route::get('/suppliers/{supplier}/edit', [SupplierController::class, 'edit'])->name('suppliers.edit')->where('supplier', '[0-9]+');
+            Route::put('/suppliers/{supplier}',      [SupplierController::class, 'update'])->name('suppliers.update')->where('supplier', '[0-9]+');
+            Route::delete('/suppliers/{supplier}',   [SupplierController::class, 'destroy'])->name('suppliers.destroy')->where('supplier', '[0-9]+');
+
+            Route::post('/suppliers/{supplier}/invoices', [SupplierInvoiceController::class, 'store'])->name('suppliers.invoices.store')->where('supplier', '[0-9]+');
+            Route::post('/suppliers/{supplier}/payments', [SupplierPaymentController::class, 'storeConsolidated'])->name('suppliers.payments')->where('supplier', '[0-9]+');
+            Route::post('/suppliers/{supplier}/print',    [SupplierController::class, 'printResumen'])->name('suppliers.print')->where('supplier', '[0-9]+');
+            Route::post('/supplier-invoices/{supplierInvoice}/payments', [SupplierPaymentController::class, 'storeInvoicePayment'])->name('supplier-invoices.payments')->where('supplierInvoice', '[0-9]+');
+        });
     });
 });

@@ -56,7 +56,7 @@ class BackupController extends Controller
         $fields = [
             'shop_name', 'shop_address', 'shop_phone', 'shop_nit',
             'invoice_footer', 'lan_ip', 'backup_path', 'thermal_printer_name',
-            'touch_mode',
+            'touch_mode', 'module_suppliers_enabled',
         ];
 
         foreach ($fields as $field) {

@@ -129,7 +129,21 @@
     </style>
     <script>
         window.formatCOP = (val) => '$' + Math.round(parseFloat(val) || 0).toLocaleString('es-CO');
-        window.formatGrams = (qty) => { const g = Math.round((parseFloat(qty) || 0) * 1000); return g > 0 ? g.toLocaleString('es-CO') + ' g' : ''; };
+        // ── Shared KG/grams helpers (scale input) — used by /sales/new and supplier items ──
+        // Convention: weights are stored internally in KG; the scale shows integer GRAMS.
+        window.KgGrams = {
+            // Strip a typed value down to integer-gram digits ("1.250 g" -> "1250").
+            rawGrams: (val) => String(val ?? '').replace(/[^0-9]/g, ''),
+            // KG from a typed grams value (string or number): 1250 -> 1.25
+            toKg: (val) => (parseInt(window.KgGrams.rawGrams(val), 10) || 0) / 1000,
+            // Integer grams from a KG value: 1.25 -> 1250
+            toGrams: (kg) => Math.round((parseFloat(kg) || 0) * 1000),
+            // Grams formatted with dot thousands, no unit: kg 60 -> "60.000", kg 0 -> ""
+            formatGrams: (kg) => { const g = window.KgGrams.toGrams(kg); return g > 0 ? g.toLocaleString('es-CO') : ''; },
+            // KG label with 3 decimals: 60 -> "60.000", 1.25 -> "1.250"
+            kgLabel: (kg) => (parseFloat(kg) || 0).toFixed(3),
+        };
+        window.formatGrams = (qty) => { const g = window.KgGrams.formatGrams(qty); return g ? g + ' g' : ''; };
         window.__touchMode = {{ \App\Models\Setting::get('touch_mode', '0') === '1' ? 'true' : 'false' }};
         // Keyboard store — always registered so modals can bind to it even when touch_mode is off
         document.addEventListener('alpine:init', () => {
@@ -262,6 +276,7 @@
     $__navActive = fn(string $route) => request()->routeIs($route)
         ? 'bg-white/20 font-semibold rounded px-2 py-1'
         : 'hover:bg-white/10 rounded px-2 py-1 transition';
+    $__suppliersEnabled = \App\Models\Setting::get('module_suppliers_enabled', '0') === '1';
 @endphp
 <div x-data="{ menuOpen: false }" class="sticky top-0 z-50">
 
@@ -296,6 +311,9 @@
                     @if(auth()->user()->isAdmin())
                         <a href="{{ route('products.index') }}" class="{{ $__navActive('products.*') }}">Productos</a>
                         <a href="{{ route('customers.index') }}" class="{{ $__navActive('customers.*') }}">Clientes</a>
+                        @if($__suppliersEnabled)
+                            <a href="{{ route('suppliers.index') }}" class="{{ $__navActive('suppliers.*') }}">Proveedores</a>
+                        @endif
                         <a href="{{ route('reports.payments') }}" class="{{ $__navActive('reports.*') }}">Validación</a>
                         <a href="{{ route('backups.index') }}" class="{{ $__navActive('backups.*') }}">Config</a>
                     @endif
@@ -371,6 +389,12 @@
                        class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('customers.*') ? 'bg-white/20 font-semibold' : '' }}">
                         Clientes
                     </a>
+                    @if($__suppliersEnabled)
+                        <a href="{{ route('suppliers.index') }}" @click="menuOpen = false"
+                           class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('suppliers.*') ? 'bg-white/20 font-semibold' : '' }}">
+                            Proveedores
+                        </a>
+                    @endif
                     <a href="{{ route('reports.payments') }}" @click="menuOpen = false"
                        class="block py-3 px-5 text-sm hover:bg-white/10 transition {{ request()->routeIs('reports.*') ? 'bg-white/20 font-semibold' : '' }}">
                         Validación de Pagos

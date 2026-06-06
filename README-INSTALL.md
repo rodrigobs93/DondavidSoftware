@@ -126,6 +126,18 @@ Para que la URL LAN no cambie cuando el router reinicia:
 
 ---
 
+## Módulos opcionales
+
+- **Proveedores / Cuentas por Pagar:** viene **apagado** por defecto. Para activarlo:
+  **Config → Módulos → Habilitar módulo de Proveedores** y guardar. Aparecerá
+  "Proveedores" en el menú (solo administradores). Permite registrar facturas de
+  proveedor (ítems por KG o unidad), pagos ligados a una factura o pagos al
+  proveedor que se reparten automáticamente (FIFO) a las facturas más antiguas, e
+  imprimir el estado de cuenta. Mientras esté apagado, el menú se oculta y las URLs
+  directas devuelven 403.
+
+---
+
 ## Backup manual
 
 1. Accede a **Config → Exportar Backup SQL**.

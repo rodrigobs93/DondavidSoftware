@@ -206,6 +206,29 @@ $currentHeaderColor = $settings['header_color'] ?? '#111827';
             </form>
         </div>
 
+        {{-- Módulos opcionales --}}
+        <div class="bg-white rounded-lg shadow p-6">
+            <h2 class="font-semibold text-gray-700 mb-4">Módulos</h2>
+            <form method="POST" action="{{ route('backups.settings') }}">
+                @csrf
+                <label class="flex items-center gap-3 cursor-pointer">
+                    <input type="hidden" name="module_suppliers_enabled" value="0">
+                    <input type="checkbox" name="module_suppliers_enabled" value="1"
+                           class="w-5 h-5 rounded"
+                           {{ \App\Models\Setting::get('module_suppliers_enabled', '0') === '1' ? 'checked' : '' }}>
+                    <span class="text-sm text-gray-600">
+                        Habilitar módulo de Proveedores (Cuentas por Pagar)
+                    </span>
+                </label>
+                <p class="text-xs text-gray-400 mt-1 ml-8">
+                    Agrega «Proveedores» al menú para registrar facturas y pagos a proveedores.
+                </p>
+                <button type="submit" class="mt-3 pos-btn pos-btn-secondary text-sm">
+                    Guardar
+                </button>
+            </form>
+        </div>
+
         {{-- Backup export --}}
         <div class="bg-white rounded-lg shadow p-6">
             <h2 class="font-semibold text-gray-700 mb-2">Exportar Backup</h2>

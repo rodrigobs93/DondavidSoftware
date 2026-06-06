@@ -632,6 +632,101 @@ class EscPosTicketRenderer
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Public: render supplier "cuentas por pagar" consolidated statement
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Render a consolidated statement for a supplier's pending invoices.
+     *
+     * Payload:
+     *   shop:     [name, address, phone, nit, logo_path, footer]
+     *   supplier: [name]
+     *   invoices: array of [number, date (d/m/y), total, balance]
+     *   totalDebt:     string (sum of invoice balances)
+     *   creditBalance: string (saldo a favor)
+     *   netAmount:     string (totalDebt - creditBalance)
+     *   printDate:     string (dd/mm/yyyy HH:mm)
+     */
+    public function renderSupplierConsolidado(array $payload): string
+    {
+        $out      = self::INIT . self::FONT_B;
+        $shop     = $payload['shop'];
+        $supplier = $payload['supplier'];
+        $invoices = $payload['invoices'];
+
+        // ── Logo ─────────────────────────────────────────────────────────────
+        $out .= $this->renderLogo($shop['logo_path'] ?? '');
+
+        // ── Shop header ───────────────────────────────────────────────────────
+        $out .= self::FONT_A . self::ALIGN_CENTER;
+        $out .= self::BOLD_ON . $this->enc(mb_strtoupper($shop['name'])) . self::LF . self::BOLD_OFF;
+        $out .= self::FONT_B;
+        foreach (explode(self::LF, wordwrap($this->enc($shop['address']), self::WIDTH_A, self::LF, true)) as $line) {
+            $out .= $line . self::LF;
+        }
+        if ($shop['phone']) $out .= 'Tel: ' . $this->enc($shop['phone']) . self::LF;
+        if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
+        $out .= $this->divider('=', self::WIDTH_A);
+
+        // ── Body — centered block (same strategy as cartera resumen) ──────────
+        $bodyWidth = self::WIDTH_B - 2;                            // 54 of 56
+        $out .= self::ALIGN_CENTER;
+
+        $out .= self::FONT_A . self::BOLD_ON . 'PAGO A PROVEEDOR' . self::BOLD_OFF . self::FONT_B
+              . '  ' . $payload['printDate'] . self::LF;
+
+        // ── Supplier ──────────────────────────────────────────────────────────
+        $out .= $this->centeredDivider('-', $bodyWidth);
+        $supName = $this->enc($supplier['name']);
+        $out .= $this->centeredLine('Proveedor: ' . $this->truncate($supName, $bodyWidth - 11), $bodyWidth);
+        $out .= $this->centeredDivider('=', $bodyWidth);
+
+        // ── Column header ─────────────────────────────────────────────────────
+        // Cols (Font B): num(8) + date(9) + total(right,19) + balance(right,18) = 54
+        $out .= $this->centeredLine(
+            $this->pad('#FACT', 8)
+          . $this->pad('FECHA', 9)
+          . $this->padL('TOTAL', 19)
+          . $this->padL('SALDO', 18),
+            $bodyWidth
+        );
+        $out .= $this->centeredDivider('-', $bodyWidth);
+
+        foreach ($invoices as $inv) {
+            $num     = $this->pad($this->truncate((string) $inv['number'], 7), 8);
+            $date    = $this->pad((string) $inv['date'], 9);
+            $total   = $this->padL($this->cop($inv['total']),   19);
+            $balance = $this->padL($this->cop($inv['balance']), 18);
+            $out .= $this->centeredLine($this->enc($num) . $date . $total . $balance, $bodyWidth);
+        }
+        $out .= $this->centeredDivider('=', $bodyWidth);
+
+        // ── Totals ────────────────────────────────────────────────────────────
+        $out .= $this->centeredTwoCol('Deuda total:', $this->cop($payload['totalDebt']), $bodyWidth);
+        if (bccomp($payload['creditBalance'], '0', 2) > 0) {
+            $out .= $this->centeredTwoCol('Saldo a favor:', $this->cop($payload['creditBalance']), $bodyWidth);
+        }
+        $out .= self::BOLD_ON;
+        $out .= $this->centeredTwoCol('NETO A PAGAR:', $this->cop($payload['netAmount']), $bodyWidth);
+        $out .= self::BOLD_OFF;
+        $out .= $this->centeredDivider('=', $bodyWidth);
+
+        // ── Footer ────────────────────────────────────────────────────────────
+        if (!empty($shop['footer'])) {
+            $out .= self::FONT_B . self::ALIGN_CENTER;
+            foreach (explode(self::LF, wordwrap($this->enc($shop['footer']), self::WIDTH_B, self::LF, true)) as $line) {
+                $out .= $line . self::LF;
+            }
+            $out .= $this->divider('=', self::WIDTH_B);
+        }
+
+        $out .= self::LF . self::LF . self::LF;
+        $out .= self::CUT;
+
+        return $out;
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Public: render one marquilla (product label) — includes INIT + CUT
     // ─────────────────────────────────────────────────────────────────────────
     public function renderMarquilla(array $shop, string $labelText): string

@@ -13,8 +13,9 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'lan'   => EnsureLanAccess::class,
-            'admin' => \App\Http\Middleware\EnsureAdmin::class,
+            'lan'       => EnsureLanAccess::class,
+            'admin'     => \App\Http\Middleware\EnsureAdmin::class,
+            'suppliers' => \App\Http\Middleware\EnsureSuppliersEnabled::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

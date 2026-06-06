@@ -608,8 +608,7 @@ function saleForm() {
         },
 
         get pendingKg() {
-            const raw = this.pendingInput.replace(/[^0-9]/g, '');
-            return (parseInt(raw) || 0) / 1000;
+            return window.KgGrams.toKg(this.pendingInput);
         },
 
         get pendingValid() {
@@ -711,7 +710,7 @@ function saleForm() {
         },
 
         onPendingGramsInput(event) {
-            const raw = event.target.value.replace(/[^0-9]/g, '');
+            const raw = window.KgGrams.rawGrams(event.target.value);
             event.target.value = raw;
             this.pendingInput = raw;
         },
@@ -748,12 +747,11 @@ function saleForm() {
         },
 
         formatGrams(qty) {
-            const g = Math.round((parseFloat(qty) || 0) * 1000);
-            return g > 0 ? g.toLocaleString('es-CO') : '';
+            return window.KgGrams.formatGrams(qty);
         },
 
         onGramsInput(item, event) {
-            const raw = event.target.value.replace(/[^0-9]/g, '');
+            const raw = window.KgGrams.rawGrams(event.target.value);
             event.target.value = raw;
             item.quantity = (parseInt(raw) || 0) / 1000;
             this.computeLineTotal(item);

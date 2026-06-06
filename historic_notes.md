@@ -1246,3 +1246,79 @@ cliente con número de identificación duplicado salía literalmente
   cantidad a `text-sm`. Columnas numéricas ensanchadas (`w-20` cantidad, `w-28`
   total, `shrink-0`) e input de precio `flex-1 min-w-0` para evitar desbordes.
   Sin cambios de cálculo/guardado.
+
+## Sesión 2026-06-05 — Módulo Proveedores / Cuentas por Pagar (FIFO + toggle + modal)
+
+Reemplaza el cuaderno físico de facturas y deudas de proveedores por un módulo
+local-first coherente con el resto del POS (mismos botones, badges, formato COP
+`$1.000`, validación en español, tablas/tarjetas responsive, impresión térmica).
+
+### Base de datos (7 migraciones, `2026_06_05_*`)
+- `suppliers` — name, tax_id, phone, contact, notes, `credit_balance` (saldo a
+  favor, CHECK ≥ 0), `active`, soft deletes.
+- `supplier_invoices` — supplier_id, invoice_number (opcional), invoice_date,
+  due_date (opcional), total_amount, paid_amount, balance, `status`
+  (PENDING/PARTIAL/PAID), notes, voided.
+- `supplier_invoice_items` — description, **`sale_unit` (KG|UNIT)** con CHECK,
+  quantity (3 decimales para KG), unit_price (COP entero), line_total, sort_order.
+- `supplier_payments` — **un solo registro por pago** (ej. Nequi $36.000);
+  `supplier_invoice_id` nullable (modo A factura-ligada / modo B nivel-proveedor),
+  method (CASH/NEQUI/DAVIPLATA/DAVIVIENDA/OTHER), `submission_key` único
+  (anti doble-submit).
+- `supplier_payment_allocations` — distribución FIFO para auditoría
+  (supplier_payment_id, supplier_invoice_id, allocated_amount, created_at).
+- Seed `module_suppliers_enabled` = `'0'` (apagado por defecto).
+
+### Lógica (servicio + controladores)
+- `SupplierPaymentService` (espejo de `CustomerPaymentService`), `DB::transaction`
+  + `lockForUpdate` + bcmath:
+  - `applyConsolidatedPayment` (modo B): distribuye el pago entre las facturas más
+    antiguas primero (invoice_date, id); el sobrante se vuelve `credit_balance`
+    (saldo a favor). Idempotente por `submission_key`.
+  - `applyInvoicePayment` (modo A): paga una factura puntual; rechaza monto > saldo
+    con "El abono no puede superar el saldo pendiente."
+- Controladores: `SupplierController` (CRUD + detalle CxP + impresión),
+  `SupplierInvoiceController` (alta de factura con ítems), `SupplierPaymentController`
+  (pagos modo A/B). Todos responden **JSON** (201/422) cuando `expectsJson` para que
+  el modal mantenga el estado y muestre errores por campo en español.
+
+### Toggle del módulo
+- Middleware `EnsureSuppliersEnabled` (alias `suppliers` en `bootstrap/app.php`):
+  rutas bajo `['auth','lan','admin','suppliers']`. Si está apagado → 403 a URLs
+  directas y "Proveedores" oculto en el navbar (desktop + hamburguesa).
+- Switch en Config (`backups/index.blade.php` + whitelist en `BackupController`).
+
+### Entrada en gramos para KG (reutilizada de /sales/new)
+- Helpers compartidos **`window.KgGrams`** en el layout (rawGrams, toKg, toGrams,
+  formatGrams, kgLabel). `/sales/new` se refactorizó para usarlos (sin cambio de
+  comportamiento), eliminando duplicación.
+- Partial reusable `partials/_kg-unit-qty.blade.php`: KG escribe **gramos** de la
+  báscula (60000 = 60.000 kg), separador de miles, preview "Equivale a: X kg";
+  internamente se guarda kg = gramos/1000. UNIT entero. `line_total = kg * precio`.
+
+### Modal "+ Nueva factura" (touch-first)
+- `partials/_supplier-invoice-modal.blade.php`, patrón de Venta Rápida/Marquillas
+  (evento `open-supplier-invoice`, z-1000, offset de teclado, backdrop/X/Cancelar/
+  Escape). Etapa 1: proveedor (bloqueado si viene del detalle, dropdown si viene de
+  la lista), datos + tabla de ítems + total. Etapa 2 (opcional): "Guardar y registrar
+  pago" → modo A (esta factura) o modo B (FIFO al proveedor). Éxito redirige al
+  detalle; errores 422 mantienen el modal abierto.
+- Botones de entrada en lista y detalle; se eliminó el formulario inline anterior.
+
+### Impresión
+- `EscPosTicketRenderer::renderSupplierConsolidado` (espejo de
+  `renderCarteraResumen`): "PAGO A PROVEEDOR", facturas pendientes (n.º, fecha,
+  saldo), Deuda total, Saldo a favor, **NETO A PAGAR**. Envío síncrono como cartera.
+
+### Pruebas
+- `tests/Feature/SupplierInvoiceModalTest.php` (7, DatabaseTransactions): alta con
+  ítems KG+UNIT, total-only, 422 sin fecha, 422 sin total/ítems, pago FIFO,
+  sobrepago factura (422 "saldo"), rutas bloqueadas con módulo apagado. **7/7 OK**.
+- FIFO verificado aparte: parcial / pago exacto / sobrepago→saldo a favor /
+  doble-submit idempotente.
+- Correr tests apuntando a la BD dev: `DB_DATABASE=don_david DB_USERNAME=don_david_user
+  DB_PASSWORD=don_david_pass php artisan test` (phpunit.xml apunta a `mi_pos`, inexistente).
+
+### Pendiente / Fase 2
+- Fotos/PDF de facturas de proveedor. Aplicar saldo a favor a una factura puntual
+  (estilo Cartera) + ledger de movimientos. Incluir pagos de proveedor en Validación.

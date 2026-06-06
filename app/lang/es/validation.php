@@ -221,6 +221,16 @@ return [
         'cash_received' => 'efectivo recibido',
         'fe_reference' => 'referencia',
         'logo' => 'logo',
+        'tax_id' => 'identificación',
+        'contact' => 'contacto',
+        'invoice_number' => 'número de factura',
+        'due_date' => 'fecha de vencimiento',
+        'description' => 'descripción',
+        'unit_price' => 'precio unitario',
+        'quantity' => 'cantidad',
+        'items.*.description' => 'descripción del ítem',
+        'items.*.quantity' => 'cantidad del ítem',
+        'items.*.unit_price' => 'precio del ítem',
     ],
 
 ];
