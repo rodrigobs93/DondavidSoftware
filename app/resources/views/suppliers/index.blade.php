@@ -5,7 +5,7 @@
 <div class="flex items-center justify-between mb-4 gap-2 flex-wrap">
     <h1 class="text-xl font-bold text-gray-800">Proveedores</h1>
     <div class="flex gap-2" x-data>
-        <button type="button" @click="$dispatch('open-supplier-invoice')" class="pos-btn pos-btn-success">+ Nueva factura</button>
+        <button type="button" @click="$dispatch('open-supplier-invoice')" class="pos-btn pos-btn-success">+ Nueva Compra</button>
         <a href="{{ route('suppliers.create') }}" class="pos-btn-primary">+ Nuevo Proveedor</a>
     </div>
 </div>
@@ -68,7 +68,7 @@
                     <span class="pos-card-value text-green-600" x-text="fmt(s.credit_balance)"></span>
                 </div>
                 <div class="mt-2 flex gap-2 justify-end">
-                    <a :href="'/suppliers/' + s.id" class="pos-btn pos-btn-secondary text-sm py-2">Registrar Compra</a>
+                    <a :href="'/suppliers/' + s.id" class="pos-btn pos-btn-secondary text-sm py-2">Ver Compras</a>
                     <a :href="'/suppliers/' + s.id + '/edit'" class="pos-btn pos-btn-secondary text-sm py-2">Editar</a>
                     <form :action="'/suppliers/' + s.id" method="POST" class="inline"
                           @submit.prevent="if(confirm('¿Eliminar «' + s.name + '»?')) $el.submit()">
@@ -110,7 +110,7 @@
                         <td class="text-right" :class="parseFloat(s.credit_balance) > 0 ? 'text-green-600 font-semibold' : 'text-gray-300'"
                             x-text="parseFloat(s.credit_balance) > 0 ? fmt(s.credit_balance) : '—'"></td>
                         <td class="text-right space-x-2 whitespace-nowrap">
-                            <a :href="'/suppliers/' + s.id" class="pos-btn-link">Registrar Compra</a>
+                            <a :href="'/suppliers/' + s.id" class="pos-btn-link">Ver Compras</a>
                             <a :href="'/suppliers/' + s.id + '/edit'" class="pos-btn-link">Editar</a>
                             <form :action="'/suppliers/' + s.id" method="POST" class="inline"
                                   @submit.prevent="if(confirm('¿Eliminar «' + s.name + '»? Si tiene historial, se conserva; si no, se elimina definitivamente.')) $el.submit()">

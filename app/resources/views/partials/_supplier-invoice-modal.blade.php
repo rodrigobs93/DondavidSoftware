@@ -83,22 +83,65 @@
                     <span class="col-span-1"></span>
                 </div>
                 <template x-for="(row, idx) in items" :key="idx">
-                    <div class="grid grid-cols-12 gap-2 mb-2 items-start">
-                        <input type="text" x-model="row.description"
-                               placeholder="Descripción" data-keyboard="text"
-                               class="col-span-3 border rounded px-2 py-1 text-sm">
-                        <select x-model="row.sale_unit"
-                                @change="row.quantity = ''; row.gramsDisplay = ''"
-                                class="col-span-2 border rounded px-2 py-1 text-sm">
-                            <option value="UNIT">und</option>
-                            <option value="KG">kg</option>
-                        </select>
-                        @include('partials._kg-unit-qty')
-                        <input type="number" step="1" min="0" x-model="row.unit_price"
-                               placeholder="P. unit." data-keyboard="numeric"
-                               class="col-span-2 border rounded px-2 py-1 text-sm">
-                        <span class="col-span-2 text-right text-sm text-gray-600 pt-1.5" x-text="fmt(lineTotal(row))"></span>
-                        <button type="button" @click="removeRow(idx)" class="col-span-1 text-red-500 text-sm pt-1">✕</button>
+                    <div class="mb-2">
+                        {{-- DESKTOP: dense grid row (aligned columns) --}}
+                        <div class="hidden sm:grid grid-cols-12 gap-2 items-start">
+                            <input type="text" x-model="row.description"
+                                   placeholder="Descripción" data-keyboard="text"
+                                   class="col-span-3 border rounded px-2 py-1 text-sm">
+                            <select x-model="row.sale_unit"
+                                    @change="row.quantity = ''; row.gramsDisplay = ''"
+                                    class="col-span-2 border rounded px-2 py-1 text-sm">
+                                <option value="UNIT">und</option>
+                                <option value="KG">kg</option>
+                            </select>
+                            @include('partials._kg-unit-qty', ['wrapperClass' => 'col-span-2'])
+                            <input type="number" step="1" min="0" x-model="row.unit_price"
+                                   placeholder="P. unit." data-keyboard="numeric"
+                                   class="col-span-2 border rounded px-2 py-1 text-sm">
+                            <span class="col-span-2 text-right text-sm text-gray-600 pt-1.5" x-text="fmt(lineTotal(row))"></span>
+                            <button type="button" @click="removeRow(idx)" class="col-span-1 text-red-500 text-sm pt-1">✕</button>
+                        </div>
+
+                        {{-- MOBILE: stacked, labeled card --}}
+                        <div class="sm:hidden border border-gray-200 rounded-lg bg-gray-50 p-3 space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span class="text-xs font-semibold text-gray-500" x-text="'Ítem ' + (idx + 1)"></span>
+                                <button type="button" @click="removeRow(idx)"
+                                        class="text-red-600 text-sm font-medium px-2 py-1 -mr-1">Quitar ✕</button>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-600 mb-1">Descripción</label>
+                                <input type="text" x-model="row.description"
+                                       placeholder="Descripción" data-keyboard="text" class="form-input">
+                            </div>
+                            <div class="grid grid-cols-2 gap-2">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Unidad</label>
+                                    <select x-model="row.sale_unit"
+                                            @change="row.quantity = ''; row.gramsDisplay = ''"
+                                            class="form-input">
+                                        <option value="UNIT">und</option>
+                                        <option value="KG">kg</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Cantidad</label>
+                                    @include('partials._kg-unit-qty', ['wrapperClass' => '', 'inputClass' => 'form-input'])
+                                </div>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 items-end">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">P. unit.</label>
+                                    <input type="number" step="1" min="0" x-model="row.unit_price"
+                                           placeholder="0" data-keyboard="numeric" class="form-input">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-600 mb-1">Total</label>
+                                    <div class="form-input bg-gray-100 text-right font-semibold" x-text="fmt(lineTotal(row))"></div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </template>
                 <p x-show="items.some(r => r.sale_unit === 'KG')" x-cloak class="text-xs text-gray-400 mt-1">

@@ -1322,3 +1322,34 @@ local-first coherente con el resto del POS (mismos botones, badges, formato COP
 ### Pendiente / Fase 2
 - Fotos/PDF de facturas de proveedor. Aplicar saldo a favor a una factura puntual
   (estilo Cartera) + ledger de movimientos. Incluir pagos de proveedor en Validación.
+
+## Sesión 2026-06-15 — Reset de BD (local/test) + ítems de proveedor responsive
+
+### Reset de base de datos a estado limpio (solo local/test)
+- `scripts/reset-db.ps1` — comando único y repetible: `migrate:fresh --force` +
+  seed mínimo. Guardas de seguridad: **bloquea** si `APP_ENV` no es `local`/`testing`
+  (lee el entorno autoritativo vía artisan, no solo `.env`) y exige escribir `RESET`
+  (`-Yes` salta solo el prompt). Detecta `php.exe` automáticamente (`-PhpExe` /
+  `$env:PHP_BIN` / WinGet / PATH) e imprime resumen de conteos al final.
+- `database/seeders/MinimalSeeder.php` — solo lo mínimo: settings, cliente GENÉRICO,
+  usuarios admin+cajero. **Sin** datos de demo (no corre `ProductSeeder`). El
+  `DatabaseSeeder` por defecto (con catálogo de muestra) sigue siendo el de instalación.
+- Verificado: tras correrlo → `products=0, invoices=0, supplier*=0`; `customers=1`
+  (genérico), `users=2`, `settings=9` (incl. `module_suppliers_enabled=0`). Guarda de
+  producción confirmada (sale 2 sin tocar la BD). Documentado en `README-INSTALL.md`.
+
+### Ítems de factura de proveedor — responsive en móvil
+- El modal de factura mostraba ~5 campos en una sola fila horizontal: inusable en
+  teléfonos. Ahora sigue el patrón del resto del app (escritorio = grilla, móvil =
+  tarjeta apilada).
+- `partials/_kg-unit-qty.blade.php` se hizo agnóstico al layout con vars Blade
+  opcionales `$wrapperClass` (default `col-span-2`) y `$inputClass` (default compacto;
+  `form-input` en móvil). **Sin cambios de lógica** (mismos helpers `window.KgGrams`).
+- `partials/_supplier-invoice-modal.blade.php`: cada ítem es un bloque `x-for` con dos
+  layouts que comparten `row`/`idx`:
+  - Escritorio (`hidden sm:grid`): la fila densa de 12 columnas, igual que antes.
+  - Móvil (`sm:hidden`): tarjeta con borde redondeado, `bg-gray-50`, espaciado y
+    campos etiquetados (Descripción full-width; Unidad+Cantidad y P.unit+Total en
+    2 columnas; inputs `form-input` táctiles ~44px; botón "Quitar ✕").
+  - KG sigue usando gramos (báscula), UNIT entero, `lineTotal`/totales sin cambios.
+- Etiquetas de la lista de proveedores: "+ Nueva Compra" y "Ver Compras".
