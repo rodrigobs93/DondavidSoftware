@@ -179,6 +179,42 @@ php artisan tinker
 
 ---
 
+## Resetear la base de datos a estado limpio (solo LOCAL/TEST)
+
+Para dejar la base **vacía** (estado limpio) durante pruebas, usa el script:
+
+```powershell
+# Desde la raíz del repositorio
+./scripts/reset-db.ps1          # pide confirmación (escribir RESET)
+./scripts/reset-db.ps1 -Yes     # sin confirmación (para automatización)
+```
+
+Qué hace:
+
+1. `php artisan migrate:fresh --force` — elimina **todas** las tablas y vuelve a
+   correr todas las migraciones.
+2. `php artisan db:seed --class=MinimalSeeder --force` — inserta **solo** lo
+   mínimo necesario para operar:
+   - llaves de configuración (`settings`),
+   - el cliente **GENÉRICO** requerido,
+   - los usuarios `admin@minegocio.local` y `cajero@minegocio.local`.
+
+**No** inserta datos de demo/muestra (el catálogo de productos de ejemplo del
+`DatabaseSeeder` **no** se crea). Al terminar imprime un resumen:
+`products=0, invoices=0, supplier*=0`.
+
+Seguridad:
+
+- Se **bloquea** si `APP_ENV` no es `local` ni `testing` (nunca corre en
+  producción) y exige escribir `RESET` para confirmar.
+- `php.exe` se detecta automáticamente; si hace falta: `-PhpExe 'C:\ruta\php.exe'`
+  o define `$env:PHP_BIN`.
+
+> El instalador de producción usa `DatabaseSeeder` (con catálogo de muestra). Este
+> reset es **exclusivo para desarrollo/pruebas**.
+
+---
+
 ## Estructura del proyecto
 
 ```
