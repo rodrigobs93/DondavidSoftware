@@ -16,10 +16,7 @@ $productsData = $products->map(fn ($p) => [
 ]);
 $categoriesData = $categories->map(fn ($c) => ['id' => $c->id, 'name' => $c->name]);
 @endphp
-<div class="flex items-center justify-between mb-4">
-    <h1 class="text-xl font-bold text-gray-800">Precios de Productos</h1>
-    <a href="{{ route('categories.index') }}" class="text-sm text-blue-600 hover:text-blue-800">Gestionar categorías →</a>
-</div>
+@include('products._tabs', ['active' => 'precios'])
 
 <div x-data="productFilter()">
 

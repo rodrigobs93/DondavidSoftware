@@ -5,6 +5,7 @@ use App\Http\Controllers\Auth\PasswordRecoveryController;
 use App\Http\Controllers\BackupController;
 use App\Http\Controllers\CarteraController;
 use App\Http\Controllers\CategoryController;
+use App\Http\Controllers\CotizacionController;
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\FePendingController;
@@ -87,6 +88,9 @@ Route::middleware(['auth', 'lan'])->group(function () {
         // Products
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+        // Cotización — literal segments; must be before /products/{product} routes
+        Route::get('/products/cotizacion', [CotizacionController::class, 'index'])->name('products.cotizacion');
+        Route::post('/products/cotizacion/print', [CotizacionController::class, 'print'])->name('products.cotizacion.print');
         Route::post('/products/{product}/price', [ProductController::class, 'updatePrice'])->name('products.price');
         Route::post('/products/{product}/name', [ProductController::class, 'updateName'])->name('products.name');
         Route::post('/products/{product}/category', [ProductController::class, 'updateCategory'])->name('products.category');

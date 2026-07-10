@@ -1353,3 +1353,52 @@ local-first coherente con el resto del POS (mismos botones, badges, formato COP
     2 columnas; inputs `form-input` táctiles ~44px; botón "Quitar ✕").
   - KG sigue usando gramos (báscula), UNIT entero, `lineTotal`/totales sin cambios.
 - Etiquetas de la lista de proveedores: "+ Nueva Compra" y "Ver Compras".
+
+## Sesión 2026-07-09 — Cotización de productos (preview, copiar, imprimir)
+
+### Nueva funcionalidad: "Generar cotización"
+- Nueva pestaña en /products: navegación "Precios | Cotización"
+  (`products/_tabs.blade.php`, incluida en ambas vistas; el header anterior del
+  index se reemplazó por el partial). Solo admin (mismo grupo de rutas que /products).
+- Rutas: `GET /products/cotizacion` y `POST /products/cotizacion/print`
+  (registradas ANTES de las rutas `/products/{product}` para evitar colisión).
+- `CotizacionController` con DI de constructor (`EscPosTicketRenderer`,
+  `ThermalPrinterService`, patrón CarteraController) para poder mockear en tests.
+- Es solo informativa: NO crea venta, factura, pago, ni fila en `print_jobs`
+  (impresión síncrona directa, como marquillas/cartera).
+
+### UI (`products/cotizacion.blade.php`)
+- Selector: búsqueda + filtro por categoría (client-side sobre catálogo embebido,
+  sin fetch), checkboxes táctiles 44px, "Seleccionar todos (N)" (respeta filtro),
+  "Quitar selección". Productos sin precio: fila atenuada, badge "Sin precio",
+  checkbox deshabilitado.
+- Vista previa en texto plano (misma agrupación que el ticket), sticky en desktop,
+  apilada en móvil (`grid lg:grid-cols-2`).
+- "Copiar cotización": `navigator.clipboard` solo en contexto seguro; fallback
+  textarea + `execCommand('copy')` **obligatorio** porque la app corre por http://
+  en LAN. Banner verde de éxito (patrón marquillas).
+- "Imprimir cotización": POST con IDs; el servidor RELEE precios actuales de la BD
+  (siempre imprime el último precio guardado) y filtra inactivos/eliminados/sin precio.
+
+### Agrupación por categoría (preview + ticket)
+- Secciones por categoría en orden alfabético; productos sin categoría al final
+  bajo "Otros"/"OTROS". Misma lógica en Alpine (`groupedSelected`) y en el
+  controller (payload `sections`).
+
+### Impresión térmica
+- `EscPosTicketRenderer::renderCotizacion(payload)`: logo + header de tienda,
+  título "COTIZACION" + fecha/hora, sección PRODUCTOS con headers de categoría en
+  negrita, ítems "nombre .... $X.XXX / kg|unidad" (nombres largos: wrap + precio
+  alineado a la derecha en línea propia), nota "Precios sujetos a cambios...",
+  SIN footer de tienda ("Gracias por su compra" no aplica), largo automático, corte.
+- Sanitización ASCII y formato COP con los helpers existentes (`enc`, `cop`).
+
+### Pruebas
+- `tests/Feature/CotizacionTest.php` (10, DatabaseTransactions, impresora mockeada):
+  auth/admin, render de página, bytes con precios actuales y acentos sanitizados,
+  agrupación por categoría (orden alfabético + OTROS al final, cada producto en su
+  sección), 422 selección vacía, 422 sin precios válidos, filtra inválidos pero
+  imprime válidos, 500 si falla la impresora, y no crea factura/print_job. **10/10 OK**.
+- Correr con env overrides de BD dev (phpunit.xml apunta a `mi_pos`).
+- Pendiente: prueba física en la XP-80C (espaciado de secciones) y copiar desde
+  la tablet por http:// (fallback de portapapeles).

@@ -764,4 +764,87 @@ class EscPosTicketRenderer
         return $out;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Public: render "cotización" (price quotation) ticket
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Render an informational price-quotation ticket. No invoice/sale involved.
+     *
+     * Payload:
+     *   shop:      [name, address, phone, nit, logo_path, footer]  (footer NOT printed)
+     *   printDate: string (dd/mm/yyyy HH:mm)
+     *   sections:  array of [label, items] — items: [name, sale_unit ('KG'|'UNIT'), base_price]
+     *   note:      string (closing note, e.g. "Precios sujetos a cambios...")
+     */
+    public function renderCotizacion(array $payload): string
+    {
+        $out      = self::INIT . self::FONT_B;
+        $shop     = $payload['shop'];
+        $sections = $payload['sections'];
+
+        // ── Logo ─────────────────────────────────────────────────────────────
+        $out .= $this->renderLogo($shop['logo_path'] ?? '');
+
+        // ── Shop header ───────────────────────────────────────────────────────
+        $out .= self::FONT_A . self::ALIGN_CENTER;
+        $out .= self::BOLD_ON . $this->enc(mb_strtoupper($shop['name'])) . self::LF . self::BOLD_OFF;
+        $out .= self::FONT_B;
+        foreach (explode(self::LF, wordwrap($this->enc($shop['address']), self::WIDTH_A, self::LF, true)) as $line) {
+            $out .= $line . self::LF;
+        }
+        if ($shop['phone']) $out .= 'Tel: ' . $this->enc($shop['phone']) . self::LF;
+        if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
+        $out .= $this->divider('=', self::WIDTH_A);
+
+        // ── Body — centered as a block, same strategy as the invoice ─────────
+        $bodyWidth = self::WIDTH_B - 2;                            // 54 of 56
+        $out .= self::ALIGN_CENTER;
+
+        // ── Ticket title & date ───────────────────────────────────────────────
+        $out .= self::FONT_A . self::BOLD_ON . 'COTIZACION' . self::BOLD_OFF . self::FONT_B
+              . '  ' . $payload['printDate'] . self::LF;
+
+        // ── Products, grouped by category ─────────────────────────────────────
+        $out .= $this->centeredDivider('-', $bodyWidth);
+        $out .= self::BOLD_ON . $this->centeredLine('PRODUCTOS', $bodyWidth) . self::BOLD_OFF;
+        $out .= $this->centeredDivider('-', $bodyWidth);
+
+        $first = true;
+        foreach ($sections as $section) {
+            if (!$first) {
+                $out .= self::LF;   // blank line between category sections
+            }
+            $first = false;
+
+            $label = $this->enc(mb_strtoupper($section['label']));
+            $out .= self::BOLD_ON . $this->centeredLine($this->truncate($label, $bodyWidth), $bodyWidth) . self::BOLD_OFF;
+
+            foreach ($section['items'] as $item) {
+                $name  = $this->enc($item['name']);
+                $unit  = $item['sale_unit'] === 'KG' ? 'kg' : 'unidad';
+                $right = $this->cop($item['base_price']) . ' / ' . $unit;
+                if (mb_strlen($name) <= $bodyWidth - mb_strlen($right) - 2) {
+                    $out .= $this->centeredTwoCol($name, $right, $bodyWidth);
+                } else {
+                    // Long name: wrap across full width, price right-aligned below
+                    $out .= $this->centeredWrapped($name, $bodyWidth);
+                    $out .= $this->centeredTwoCol('', $right, $bodyWidth);
+                }
+            }
+        }
+        $out .= $this->centeredDivider('=', $bodyWidth);
+
+        // ── Closing note (the shop footer greeting is intentionally omitted —
+        //    a quotation is not a purchase receipt) ─────────────────────────────
+        if (!empty($payload['note'])) {
+            $out .= $this->centeredWrapped($this->enc($payload['note']), $bodyWidth);
+        }
+
+        // Auto length: no minimum padding, no signature block
+        $out .= self::LF . self::LF . self::LF;
+        $out .= self::CUT;
+        return $out;
+    }
+
 }
