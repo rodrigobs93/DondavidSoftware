@@ -96,8 +96,8 @@ Right-click any of them → Run with PowerShell (or make a Start Menu shortcut).
 
 ### Logs
 - `C:\MiPOS\logs\launcher.log` — one line per run of `start.ps1`.
-- `C:\MiPOS\logs\laravel-YYYY-MM-DD.log` — Laravel server stdout/stderr.
-- `C:\MiPOS\logs\worker-YYYY-MM-DD.log`  — print worker stdout/stderr.
+- `C:\MiPOS\logs\laravel-YYYY-MM-DD.log` / `.err.log` — Laravel server stdout / stderr.
+- `C:\MiPOS\logs\worker-YYYY-MM-DD.log` / `.err.log`  — print worker stdout / stderr.
 - `C:\MiPOS\logs\install.log` — full transcript of the install script.
 
 ---

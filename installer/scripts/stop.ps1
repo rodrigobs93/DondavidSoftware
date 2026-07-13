@@ -45,4 +45,15 @@ function Stop-ByPidFile([string]$Path, [string]$Pattern, [string]$Label) {
 Stop-ByPidFile $LaravelPidFile 'artisan\s+serve'   'Laravel'
 Stop-ByPidFile $WorkerPidFile  'app:print-worker'  'Worker'
 
+# artisan serve runs the real web server as a child (php -S ... server.php);
+# killing the parent does not kill it on Windows, so sweep it explicitly.
+$children = Get-CimInstance Win32_Process -Filter "Name='php.exe'" |
+            Where-Object { $_.CommandLine -and ($_.CommandLine -match 'server\.php') }
+foreach ($p in $children) {
+    try {
+        Stop-Process -Id $p.ProcessId -Force -ErrorAction Stop
+        Write-Host "Laravel web server stopped (pid=$($p.ProcessId))"
+    } catch { }
+}
+
 Write-Host 'Done. Postgres service is left running.'

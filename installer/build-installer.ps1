@@ -104,6 +104,13 @@ if (-not $SkipApp) {
         $p = Join-Path $AppDst $trash
         if (Test-Path $p) { Remove-Item $p -Recurse -Force }
     }
+    # Strip dev runtime state (logs, sessions, compiled views, caches) — keep .gitignore stubs
+    foreach ($runtime in 'storage\logs','storage\framework\sessions','storage\framework\views','storage\framework\cache\data') {
+        $p = Join-Path $AppDst $runtime
+        if (Test-Path $p) {
+            Get-ChildItem $p -Recurse -File | Where-Object { $_.Name -ne '.gitignore' } | Remove-Item -Force
+        }
+    }
 
     Write-Step 'Running composer install --no-dev inside payload\app...'
     $php = Join-Path $PayloadDir 'php\php.exe'
@@ -114,9 +121,12 @@ if (-not $SkipApp) {
 
 # ---- 3. Icon ----
 $IconSrc = Join-Path $RepoRoot 'installer\assets\MiPOS.ico'
+$IconAlt = Join-Path $PayloadDir 'DonDavid.ico'
 $IconDst = Join-Path $PayloadDir 'MiPOS.ico'
 if (Test-Path $IconSrc) {
     Copy-Item $IconSrc $IconDst -Force
+} elseif (Test-Path $IconAlt) {
+    Copy-Item $IconAlt $IconDst -Force
 } elseif (-not (Test-Path $IconDst)) {
     Write-Host 'No icon found at installer\assets\MiPOS.ico — using Windows default.' -ForegroundColor Yellow
     # Create a 1x1 placeholder so ISCC does not fail

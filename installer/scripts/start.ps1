@@ -101,7 +101,8 @@ try {
     # --- 2. Laravel server ---
     $laravelPid = Get-PidFromFile $LaravelPidFile
     if (-not $laravelPid) {
-        $existing = Find-PhpProcess "artisan\s+serve.*--port=$Port"
+        # match the artisan serve parent OR its php -S child (the actual web server)
+        $existing = Find-PhpProcess "(artisan\s+serve.*--port=$Port)|(-S\s+\S+:$Port(\s|`$))"
         if ($existing) { $laravelPid = $existing.ProcessId }
     }
 
@@ -116,14 +117,16 @@ try {
         throw 'Port conflict'
     } else {
         $today   = Get-Date -Format 'yyyy-MM-dd'
+        # stdout and stderr must be different files or Start-Process throws
         $logOut  = Join-Path $LogsDir "laravel-$today.log"
+        $logErr  = Join-Path $LogsDir "laravel-$today.err.log"
         Write-Launcher "Starting Laravel on port $Port"
         $proc = Start-Process -FilePath $PhpExe `
             -ArgumentList @('artisan','serve',"--host=0.0.0.0","--port=$Port") `
             -WorkingDirectory $AppDir `
             -WindowStyle Hidden `
             -RedirectStandardOutput $logOut `
-            -RedirectStandardError  $logOut `
+            -RedirectStandardError  $logErr `
             -PassThru
         $proc.Id | Out-File -FilePath $LaravelPidFile -Encoding ascii -Force
         $laravelPid = $proc.Id
@@ -140,14 +143,15 @@ try {
         Write-Launcher "Worker already running (pid=$workerPid), skipped."
     } else {
         $today = Get-Date -Format 'yyyy-MM-dd'
-        $logW  = Join-Path $LogsDir "worker-$today.log"
+        $logW    = Join-Path $LogsDir "worker-$today.log"
+        $logWErr = Join-Path $LogsDir "worker-$today.err.log"
         Write-Launcher 'Starting print worker'
         $procW = Start-Process -FilePath $PhpExe `
             -ArgumentList @('artisan','app:print-worker') `
             -WorkingDirectory $AppDir `
             -WindowStyle Hidden `
             -RedirectStandardOutput $logW `
-            -RedirectStandardError  $logW `
+            -RedirectStandardError  $logWErr `
             -PassThru
         $procW.Id | Out-File -FilePath $WorkerPidFile -Encoding ascii -Force
         Write-Launcher "  spawned pid=$($procW.Id)"

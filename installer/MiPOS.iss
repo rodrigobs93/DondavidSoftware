@@ -88,11 +88,24 @@ end;
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   p: string;
+  port: Integer;
 begin
   Result := True;
   if CurPageID = CustomPage.ID then begin
     if (CustomPage.Values[0] = '') or (CustomPage.Values[1] = '') or (CustomPage.Values[2] = '') then begin
       MsgBox('Todos los campos son obligatorios.', mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+    port := StrToIntDef(CustomPage.Values[0], 0);
+    if (port < 1) or (port > 65535) then begin
+      MsgBox('El puerto debe ser un numero entre 1 y 65535.', mbError, MB_OK);
+      Result := False;
+      exit;
+    end;
+    { double quotes would break the install.ps1 command line }
+    if (Pos('"', CustomPage.Values[1]) > 0) or (Pos('"', CustomPage.Values[2]) > 0) then begin
+      MsgBox('Los campos no pueden contener comillas dobles (").', mbError, MB_OK);
       Result := False;
     end;
   end;
@@ -100,6 +113,9 @@ begin
     p := PasswordPage.Values[0];
     if (Length(p) < 6) then begin
       MsgBox('La contrasena debe tener al menos 6 caracteres.', mbError, MB_OK);
+      Result := False;
+    end else if (Pos('"', p) > 0) then begin
+      MsgBox('La contrasena no puede contener comillas dobles (").', mbError, MB_OK);
       Result := False;
     end else if (p <> PasswordPage.Values[1]) then begin
       MsgBox('Las contrasenas no coinciden.', mbError, MB_OK);

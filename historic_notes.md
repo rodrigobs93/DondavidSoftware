@@ -1402,3 +1402,49 @@ local-first coherente con el resto del POS (mismos botones, badges, formato COP
 - Correr con env overrides de BD dev (phpunit.xml apunta a `mi_pos`).
 - Pendiente: prueba física en la XP-80C (espaciado de secciones) y copiar desde
   la tablet por http:// (fallback de portapapeles).
+
+## Sesión 2026-07-13 — Corrección de bugs del instalador Windows
+
+### Revisión completa de `installer/` (proceso de instalación desde 0)
+Se auditaron `build-installer.ps1`, `MiPOS.iss` y los scripts de `installer/scripts/`.
+Se encontraron y corrigieron 6 bugs (2 bloqueantes que impedían instalar/arrancar):
+
+**Bloqueantes:**
+- `install.ps1`: el SQL de creación del rol usaba `\$\$` (escape inválido en
+  PowerShell) → psql recibía `DO \$\$` y la creación del usuario de BD fallaba
+  siempre, abortando la instalación. Corregido a `` `$`$ `` (genera `$$` válido;
+  verificado ejecutando el here-string).
+- `start.ps1`: `Start-Process` lanza error si `-RedirectStandardOutput` y
+  `-RedirectStandardError` apuntan al mismo archivo → Laravel y el worker nunca
+  arrancaban desde el ícono. Ahora logs separados: `laravel-FECHA.log` +
+  `laravel-FECHA.err.log` (ídem worker).
+
+**Operación:**
+- `stop.ps1`: `artisan serve` lanza un hijo `php -S ... server.php` (el servidor
+  real); en Windows matar al padre no mata al hijo → el puerto quedaba ocupado.
+  Ahora se barre explícitamente el proceso `server.php`.
+- `start.ps1`: si solo el hijo `php -S` estaba vivo, el launcher daba falso
+  "puerto en uso por otro proceso". El regex de detección ahora reconoce padre
+  e hijo (patrón verificado contra command lines reales).
+- `install.ps1`: `pg_isready 2>$null` con `$ErrorActionPreference='Stop'` en
+  PS 5.1 podía convertir stderr en excepción fatal → protegido con try/catch.
+
+**Endurecimiento:**
+- `MiPOS.iss`: el wizard valida puerto numérico (1–65535) y rechaza comillas
+  dobles en impresora/email/contraseña (rompían la línea de comandos de install.ps1).
+- `build-installer.ps1`: usa `payload\DonDavid.ico` real (antes generaba stub 1x1
+  que ISCC podía rechazar); limpia logs/sesiones/vistas compiladas de dev del
+  payload antes de empaquetar.
+- `install.ps1` `Set-EnvKey`: escapa `$` en el replacement de regex (contraseñas
+  generadas no se corrompen).
+
+### Notas
+- `installer/output/` sigue vacío: el `.exe` aún no se ha construido. Próximo
+  paso: `.\build-installer.ps1` + prueba end-to-end en VM limpia.
+- Actualización de instalaciones existentes: NO usar `git pull` en los PCs
+  (C:\MiPOS\app no es repo git, sin vendor/, sin migraciones automáticas).
+  Flujo correcto: subir `AppVersion` en MiPOS.iss, rebuild, re-ejecutar el .exe
+  (idempotente: preserva .env, BD y admin; aplica migraciones nuevas).
+- Se commitea también la spec del agente Roni (parser de pedidos WhatsApp,
+  sesión 2026-07-02): `AGENTS.md` + `agents/roni/` (reference, instructions,
+  session prompt).

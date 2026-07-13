@@ -102,8 +102,10 @@ if ($svc.Status -ne 'Running') {
 }
 
 # Wait for postgres to accept connections
+# (try/catch: under ErrorActionPreference=Stop, PS 5.1 turns redirected native
+#  stderr into a terminating error)
 for ($i=0; $i -lt 20; $i++) {
-    & (Join-Path $PgBin 'pg_isready.exe') -h localhost -p 5432 2>$null | Out-Null
+    try { & (Join-Path $PgBin 'pg_isready.exe') -h localhost -p 5432 *> $null } catch {}
     if ($LASTEXITCODE -eq 0) { break }
     Start-Sleep -Seconds 1
 }
@@ -137,13 +139,13 @@ if (Test-Path $DbPassFile) {
 $psql = Join-Path $PgBin 'psql.exe'
 $escPass = $DbPass -replace "'", "''"
 $sql = @"
-DO \$\$ BEGIN
+DO `$`$ BEGIN
   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='$DbUser') THEN
     CREATE ROLE $DbUser LOGIN PASSWORD '$escPass';
   ELSE
     ALTER ROLE $DbUser WITH LOGIN PASSWORD '$escPass';
   END IF;
-END \$\$;
+END `$`$;
 "@
 Run $psql @('-U','postgres','-h','localhost','-d','postgres','-v','ON_ERROR_STOP=1','-c',$sql) $null
 
@@ -170,7 +172,8 @@ function Set-EnvKey([string]$Key, [string]$Value) {
     $pattern = "(?m)^$escaped=.*$"
     $line    = "$Key=$Value"
     if ($content -match $pattern) {
-        $content = [Regex]::Replace($content, $pattern, $line)
+        # escape $ so regex replacement doesn't expand $1/$& in generated passwords
+        $content = [Regex]::Replace($content, $pattern, $line.Replace('$', '$$'))
     } else {
         $content = $content.TrimEnd() + "`r`n$line`r`n"
     }
