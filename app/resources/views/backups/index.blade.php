@@ -25,7 +25,7 @@ $currentHeaderColor = $settings['header_color'] ?? '#111827';
     <h2 class="font-semibold text-gray-700 mb-4">Logo del negocio</h2>
     @if($settings['business_logo_path'] ?? '')
         <div class="flex items-center gap-4 mb-4">
-            <img src="{{ \Illuminate\Support\Facades\Storage::url($settings['business_logo_path']) }}"
+            <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($settings['business_logo_path']) }}"
                  class="h-16 w-auto rounded border border-gray-200" alt="Logo actual">
             <form method="POST" action="{{ route('backups.logo.delete') }}">
                 @csrf

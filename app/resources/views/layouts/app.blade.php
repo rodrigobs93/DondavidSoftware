@@ -291,7 +291,7 @@
             {{-- Logo / Brand --}}
             <a href="{{ route('dashboard') }}" class="flex items-center gap-2 shrink-0">
                 @if($__logoPath)
-                    <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" class="h-10 w-auto rounded" alt="Logo">
+                    <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($__logoPath) }}" class="h-10 w-auto rounded" alt="Logo">
                 @else
                     <span class="font-bold text-lg tracking-wide">{{ $__shopName }}</span>
                 @endif

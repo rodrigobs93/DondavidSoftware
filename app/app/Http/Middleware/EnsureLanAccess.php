@@ -21,10 +21,23 @@ class EnsureLanAccess
         return $next($request);
     }
 
-    private function isPrivateIp(string $ip): bool
+    private function isPrivateIp(?string $ip): bool
     {
+        // Fail closed: anything that isn't a valid IP is not the local network.
+        // Without this, filter_var below returns false for malformed input and
+        // the address would be treated as private.
+        if ($ip === null || filter_var($ip, FILTER_VALIDATE_IP) === false) {
+            return false;
+        }
+
         // Allow loopback
         if (in_array($ip, ['127.0.0.1', '::1'])) {
+            return true;
+        }
+
+        // Tailscale's CGNAT range — devices here are already authenticated
+        // into the tailnet, so treat it as a trusted local network.
+        if ($this->isInCidr($ip, '100.64.0.0/10')) {
             return true;
         }
 
@@ -36,5 +49,19 @@ class EnsureLanAccess
         );
 
         return $isPublic === false;
+    }
+
+    private function isInCidr(string $ip, string $cidr): bool
+    {
+        [$subnet, $bits] = explode('/', $cidr);
+        $ipLong = ip2long($ip);
+        $subnetLong = ip2long($subnet);
+        if ($ipLong === false || $subnetLong === false) {
+            return false;
+        }
+
+        $mask = -1 << (32 - (int) $bits);
+
+        return ($ipLong & $mask) === ($subnetLong & $mask);
     }
 }
