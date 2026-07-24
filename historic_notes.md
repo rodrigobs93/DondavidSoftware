@@ -1448,3 +1448,226 @@ Se encontraron y corrigieron 6 bugs (2 bloqueantes que impedían instalar/arranc
 - Se commitea también la spec del agente Roni (parser de pedidos WhatsApp,
   sesión 2026-07-02): `AGENTS.md` + `agents/roni/` (reference, instructions,
   session prompt).
+
+## Sesión 2026-07-24 — Acceso por Tailscale + logo del negocio + copias de conflicto OneDrive
+
+### Commit de esta sesión
+
+| Commit | Descripción |
+|--------|------------|
+| `0b1c03f` | feat(lan,storage): Tailscale access for cashiers + fix logo URLs |
+
+---
+
+### Contexto: trabajo perdido en copias de conflicto de OneDrive
+
+El repositorio vive dentro de la carpeta sincronizada de OneDrive y se edita desde
+dos equipos. OneDrive detectó conflictos y renombró archivos con el sufijo del
+equipo (`-DonDavid`), **dejando la versión vieja con el nombre bueno**. Resultado:
+había cambios reales fuera del control de versiones que `git status` mostraba
+solo como "archivos nuevos sin rastrear", fáciles de confundir con basura.
+
+| Archivo de conflicto | Contenido |
+|---|---|
+| `EnsureLanAccess-DonDavid.php` | Soporte Tailscale + helper `isInCidr()` — **faltaba en el rastreado** |
+| `filesystems-DonDavid.php` | `'serve' => true` movido a disco `public` — **faltaba en el rastreado** |
+| `start-mipos-DonDavid.ps1` | Byte-idéntico al bueno — basura |
+| `storage/logs/laravel-DonDavid.log` | Log de conflicto (ya ignorado) |
+
+Los dos primeros se portaron a los archivos rastreados (verificado con `diff` =
+vacío antes de borrar) y las cuatro copias se eliminaron.
+
+> **Chequeo recomendado antes de cada commit:**
+> `git status` buscando `*-DonDavid*` / `*-DESKTOP-*`. La alternativa de fondo es
+> sacar el repo de OneDrive y sincronizar entre equipos vía GitHub.
+
+---
+
+### feat: acceso del cajero por Tailscale (rango CGNAT `100.64.0.0/10`)
+
+**Archivo:** `app/Http/Middleware/EnsureLanAccess.php`
+
+**Problema:** `scripts/start-mipos.ps1` levanta el servidor en `0.0.0.0` y anuncia
+la IP de Tailscale al arrancar, pero PHP **no** considera `100.64.0.0/10` (CGNAT,
+el rango que usa Tailscale) como privado ni reservado. `filter_var` con
+`FILTER_FLAG_NO_PRIV_RANGE|FILTER_FLAG_NO_RES_RANGE` lo clasificaba como IP
+pública → el cajero recibía **403** al entrar por la ruta que el propio script
+publica. El admin no se veía afectado (el middleware solo restringe `isCashier()`).
+
+**Fix:** chequeo explícito de CIDR antes del `filter_var`, con helper propio:
+
+```php
+// Tailscale's CGNAT range — devices here are already authenticated
+// into the tailnet, so treat it as a trusted local network.
+if ($this->isInCidr($ip, '100.64.0.0/10')) {
+    return true;
+}
+
+private function isInCidr(string $ip, string $cidr): bool
+{
+    [$subnet, $bits] = explode('/', $cidr);
+    $ipLong = ip2long($ip);
+    $subnetLong = ip2long($subnet);
+    if ($ipLong === false || $subnetLong === false) {
+        return false;   // IPv6 o entrada inválida
+    }
+    $mask = -1 << (32 - (int) $bits);
+    return ($ipLong & $mask) === ($subnetLong & $mask);
+}
+```
+
+**Implicación de seguridad (decisión consciente):** entrar al tailnet ya exige
+autenticación de Tailscale, pero el perímetro se amplía: **cualquier** dispositivo
+del tailnet pasa el chequeo del cajero, esté donde esté físicamente. Ya no es
+literalmente "solo red local".
+
+---
+
+### fix: `isPrivateIp()` fallaba abierto con IPs inválidas (bug pre-existente)
+
+**Archivo:** `app/Http/Middleware/EnsureLanAccess.php`
+
+**Causa raíz:** `filter_var($ip, FILTER_VALIDATE_IP, NO_PRIV_RANGE|NO_RES_RANGE)`
+devuelve `false` en **dos** casos distintos que el código trataba como uno solo:
+(a) la IP es privada/reservada, y (b) **la entrada no es una IP válida**. Como la
+función retornaba `$isPublic === false`, cualquier basura (`''`, `'no-una-ip'`,
+`'999.999.999.999'`) se interpretaba como "es red local" y **permitía** el acceso.
+
+Confirmado contra el código original — no lo introdujo el cambio de Tailscale.
+Explotabilidad baja en la práctica (`$request->ip()` normalmente devuelve una IP
+válida), pero es un fail-open en un control de acceso.
+
+**Fix — falla cerrado, antes de cualquier otro chequeo:**
+
+```php
+private function isPrivateIp(?string $ip): bool
+{
+    // Fail closed: anything that isn't a valid IP is not the local network.
+    if ($ip === null || filter_var($ip, FILTER_VALIDATE_IP) === false) {
+        return false;
+    }
+    ...
+```
+
+El parámetro pasó a `?string` porque `Request::ip()` declara `?string` y un `null`
+provocaba `TypeError` (500) en lugar de una denegación limpia.
+
+**Verificación — 17/17 casos sobre la clase real vía Reflection:**
+
+| Entrada | Esperado | Motivo |
+|---|---|---|
+| `127.0.0.1`, `::1` | permite | loopback |
+| `192.168.1.50`, `10.0.0.5`, `172.16.3.9` | permite | LAN privada |
+| `100.64.0.0` / `100.101.102.103` / `100.127.255.255` | permite | inicio / típico / fin del rango Tailscale |
+| `100.63.255.255` | **bloquea** | borde inferior exacto, fuera del rango |
+| `100.128.0.0` | **bloquea** | borde superior exacto, fuera del rango |
+| `8.8.8.8`, `203.0.113.9` | **bloquea** | IP pública |
+| `''`, `no-una-ip`, `evil<script>`, `999.999.999.999`, `null` | **bloquea** | entrada inválida (antes permitía) |
+
+---
+
+### fix: el logo del negocio no cargaba (disco equivocado + symlink)
+
+**Archivos:** `resources/views/layouts/app.blade.php`,
+`resources/views/backups/index.blade.php`, `config/filesystems.php`
+
+**Causa A — disco equivocado.** Las vistas usaban `Storage::url($path)`, que
+resuelve contra el disco **default** (`local` → `storage/app/private`), pero
+`BackupController::uploadLogo()` guarda en el disco **`public`**
+(`Storage::disk('public')->put(...)` / `$file->store('logos', 'public')`). La URL
+generada apuntaba a una ubicación donde el archivo no existe.
+
+```diff
+- <img src="{{ \Illuminate\Support\Facades\Storage::url($__logoPath) }}" ...>
++ <img src="{{ \Illuminate\Support\Facades\Storage::disk('public')->url($__logoPath) }}" ...>
+```
+
+**Causa B — dependencia del symlink.** Con el disco correcto, la URL
+(`APP_URL/storage/...`) todavía requería el symlink `public/storage`, que se crea
+con `php artisan storage:link` — y en Windows **exige permisos de administrador**
+o Modo Desarrollador. En una instalación limpia el logo seguiría roto.
+
+**Fix:** mover `'serve' => true` del disco `local` al disco `public`. Laravel
+registra entonces una ruta que sirve los archivos del disco directamente, sin
+depender del symlink:
+
+```diff
+  'local' => [
+      'root' => storage_path('app/private'),
+-     'serve' => true,
+  ],
+  'public' => [
+      'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
+      'visibility' => 'public',
++     'serve' => true,
+  ],
+```
+
+Verificado que nada más en el proyecto usa `Storage::url` ni `disk('local')`, así
+que quitar el flag de `local` no rompe nada. `php artisan config:show` confirma
+`public.serve=true` y `local.serve` ausente.
+
+> Este bug **no se manifestaba en la máquina de desarrollo** porque el symlink
+> `public/storage` ya existía ahí. Solo aparecería en instalación nueva.
+
+**Causa C — URL absoluta atada a `APP_URL`** (detectada al documentar el cambio,
+después del commit `0b1c03f`). Con las causas A y B resueltas, la URL seguía
+generándose como `rtrim(env('APP_URL'), '/').'/storage'`, y `.env` tiene
+`APP_URL=http://localhost:8000`. Es decir:
+
+```
+Storage::disk('public')->url('logos/x.png')
+  → http://localhost:8000/storage/logos/x.png
+```
+
+Desde un celular por LAN o por Tailscale, `localhost` es **el propio celular** →
+imagen rota. El logo solo se veía en el PC del POS, justo el escenario contrario
+al que buscaba el cambio de acceso remoto. No hay workaround por configuración:
+`APP_URL` no puede ser `localhost` y la IP de Tailscale al mismo tiempo.
+
+**Fix:** URL relativa en el disco `public`.
+
+```diff
+- 'url' => rtrim(env('APP_URL', 'http://localhost'), '/').'/storage',
++ 'url' => '/storage',
+```
+
+Verificado que es seguro:
+- `php artisan route:list --name=storage` sigue mostrando `storage/{path}` →
+  `storage.public`. Laravel registra la ruta con
+  `parse_url($config['url'])['path']`, que da `/storage` con URL absoluta o
+  relativa indistintamente.
+- Los **únicos** dos consumidores son `<img src>` en `layouts/app.blade.php` y
+  `backups/index.blade.php`; una URL root-relative funciona desde cualquier host.
+- El tiquete térmico **no** se ve afectado: `EscPosTicketRenderer::renderLogo()`
+  lee `storage_path('app/public/' . $logoPath)` directamente del disco, sin HTTP.
+
+---
+
+### chore: `scripts/start-mipos.ps1` versionado
+
+Arranque de un solo comando para uso diario (distinto del instalador de
+producción, que usa `installer/scripts/start.ps1` + servicios):
+
+1. Verifica e intenta iniciar el servicio `postgresql-x64-16` (avisa sin abortar
+   si falta permiso de administrador).
+2. `php artisan serve --host=0.0.0.0 --port=8000` en ventana aparte (logs visibles).
+3. Espera hasta 20 s a que el puerto responda (`Invoke-WebRequest`).
+4. Abre `http://127.0.0.1:8000` en el navegador.
+5. Imprime la IP de Tailscale (`tailscale ip -4`) si el CLI está disponible.
+
+Parámetros: `-Port` (default 8000), `-PgServiceName` (default `postgresql-x64-16`).
+
+También se versionó `app/package-lock.json` (`package.json` ya estaba rastreado);
+157 paquetes, todos desde `registry.npmjs.org`.
+
+---
+
+### Nota de entorno
+
+El equipo `DonDavid` no tenía identidad de Git configurada. Se definió **solo a
+nivel de repositorio** (no global) para coincidir con el historial existente:
+`Rodrigo Barrios <rogonec@gmail.com>`.
+
+El push quedó pendiente de autenticación interactiva de GitHub (Git Credential
+Manager sin credenciales guardadas en este equipo).

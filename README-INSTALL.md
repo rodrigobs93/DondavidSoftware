@@ -53,7 +53,37 @@ C:\Users\<usuario>\AppData\Local\Microsoft\WinGet\Packages\PHP.PHP.8.2_Microsoft
 
 ## Iniciar los servicios
 
-### Opción A — Manual (desarrollo/pruebas)
+### Opción A — Script de arranque (lo más simple)
+
+Desde la raíz del repositorio:
+
+```powershell
+./scripts/start-mipos.ps1
+```
+
+Hace todo en un solo paso:
+
+1. Verifica e intenta iniciar el servicio de PostgreSQL.
+2. Levanta el servidor web en `0.0.0.0:8000` (acepta conexiones LAN/Tailscale) en
+   una ventana aparte, para que puedas ver sus logs.
+3. Espera a que el puerto responda y abre el navegador en `http://127.0.0.1:8000`.
+4. Muestra la IP de Tailscale para acceso remoto, si el CLI está instalado.
+
+Parámetros opcionales:
+
+```powershell
+./scripts/start-mipos.ps1 -Port 8080
+./scripts/start-mipos.ps1 -PgServiceName 'postgresql-x64-17'
+```
+
+> Si PostgreSQL no arranca porque falta permiso de administrador, el script avisa
+> y continúa: inicia el servicio a mano desde **Servicios** de Windows, o ejecuta
+> el script como Administrador.
+
+**El print worker no lo lanza este script.** Si vas a imprimir tiquetes, abre otra
+terminal en `app/` y ejecuta `php artisan app:print-worker`.
+
+### Opción B — Manual (desarrollo/pruebas)
 
 Abre **dos terminales** (Git Bash o PowerShell) en la carpeta `app/`:
 
@@ -72,7 +102,7 @@ php artisan app:print-worker
 Accede desde el PC: **http://localhost:8000**
 Accede desde celular (misma WiFi): **http://192.168.1.100:8000** ← ajusta la IP
 
-### Opción B — Servicios Windows con NSSM (producción)
+### Opción C — Servicios Windows con NSSM (producción)
 
 Descarga NSSM desde https://nssm.cc/ y colócalo en `C:\nssm\nssm.exe`.
 
@@ -115,6 +145,35 @@ Para que la URL LAN no cambie cuando el router reinicia:
 
 ---
 
+## Acceso remoto por Tailscale (fuera del local)
+
+Por defecto el **cajero** solo puede entrar desde la red local: el middleware
+`EnsureLanAccess` devuelve **403** si su IP no es privada. El administrador no
+tiene esta restricción.
+
+Para trabajar desde fuera del negocio sin abrir puertos en el router, la app
+acepta el rango CGNAT de Tailscale (`100.64.0.0/10`) como red local de confianza.
+
+1. Instala [Tailscale](https://tailscale.com/) en el PC del POS y en el
+   dispositivo desde el que te vas a conectar; inicia sesión con la misma cuenta
+   en ambos.
+2. Arranca el servidor escuchando en todas las interfaces — `start-mipos.ps1` ya
+   lo hace, o a mano: `php artisan serve --host=0.0.0.0 --port=8000`.
+3. Obtén la IP de Tailscale del PC del POS (`tailscale ip -4`, o la muestra
+   `start-mipos.ps1` al terminar). Será algo como `100.101.102.103`.
+4. Entra desde el otro dispositivo a `http://100.101.102.103:8000`.
+
+**Ten en cuenta:** entrar al tailnet ya requiere autenticación de Tailscale, pero
+esto amplía el perímetro — **cualquier** dispositivo de tu tailnet puede acceder
+como cajero, esté donde esté. Revisa periódicamente los equipos autorizados en el
+panel de Tailscale y saca los que ya no uses.
+
+> Los rangos privados normales (`192.168.x.x`, `10.x.x.x`, `172.16–31.x.x`) y
+> `localhost` siguen funcionando igual. Cualquier otra IP —incluida una entrada
+> malformada— se rechaza.
+
+---
+
 ## Configurar la impresora térmica
 
 1. Conecta la impresora USB y anota el puerto COM en **Device Manager**.
@@ -123,6 +182,24 @@ Para que la URL LAN no cambie cuando el router reinicia:
 4. Reinicia el print worker.
 
 **Si la impresión falla:** El worker intentará hasta 3 veces antes de marcar el job como FAILED. Los errores aparecen en el Dashboard.
+
+---
+
+## Logo del negocio
+
+Se sube en **Config → Logo del negocio** (JPEG, PNG, GIF, WebP o SVG, máx. 2 MB).
+Aparece en la barra superior de la app y en los tiquetes térmicos.
+
+Los archivos se guardan en `storage/app/public/logos/` y la app los sirve por una
+ruta propia de Laravel, así que **no hace falta ejecutar `php artisan storage:link`**
+(en Windows ese comando exige permisos de administrador o Modo Desarrollador).
+
+La imagen se referencia con una URL **relativa** (`/storage/logos/...`), de modo
+que se ve igual entrando por `localhost`, por la IP de LAN o por Tailscale, sin
+depender de que `APP_URL` coincida con la dirección que estés usando.
+
+El logo del **tiquete térmico** es independiente de todo esto: el renderer lee el
+archivo directamente del disco, no por HTTP.
 
 ---
 
