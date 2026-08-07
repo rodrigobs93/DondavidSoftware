@@ -847,4 +847,112 @@ class EscPosTicketRenderer
         return $out;
     }
 
+    // ─────────────────────────────────────────────────────────────────────────
+    // Public: render "precios especiales" (per-customer price list) ticket
+    // ─────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Render the agreed special prices of the whole clientele, one section per
+     * customer. Informational only — no invoice, sale or print_jobs record.
+     *
+     * Payload:
+     *   shop:      [name, address, phone, nit, logo_path, footer]  (footer NOT printed)
+     *   printDate: string (dd/mm/yyyy HH:mm)
+     *   sections:  array of [label (customer name), business_name, items]
+     *              items: [name, sale_unit ('KG'|'UNIT'), base_price, special_price]
+     *   note:      string (closing note)
+     */
+    public function renderPreciosEspeciales(array $payload): string
+    {
+        $out      = self::INIT . self::FONT_B;
+        $shop     = $payload['shop'];
+        $sections = $payload['sections'];
+
+        // ── Logo ─────────────────────────────────────────────────────────────
+        $out .= $this->renderLogo($shop['logo_path'] ?? '');
+
+        // ── Shop header ───────────────────────────────────────────────────────
+        $out .= self::FONT_A . self::ALIGN_CENTER;
+        $out .= self::BOLD_ON . $this->enc(mb_strtoupper($shop['name'])) . self::LF . self::BOLD_OFF;
+        $out .= self::FONT_B;
+        foreach (explode(self::LF, wordwrap($this->enc($shop['address']), self::WIDTH_A, self::LF, true)) as $line) {
+            $out .= $line . self::LF;
+        }
+        if ($shop['phone']) $out .= 'Tel: ' . $this->enc($shop['phone']) . self::LF;
+        if ($shop['nit'])   $out .= 'NIT: ' . $this->enc($shop['nit'])   . self::LF;
+        $out .= $this->divider('=', self::WIDTH_A);
+
+        // ── Body — centered as a block, same strategy as the invoice ─────────
+        $bodyWidth = self::WIDTH_B - 2;                            // 54 of 56
+        $out .= self::ALIGN_CENTER;
+
+        // ── Ticket title & date ───────────────────────────────────────────────
+        $out .= self::FONT_A . self::BOLD_ON . 'PRECIOS ESPECIALES' . self::BOLD_OFF . self::FONT_B
+              . '  ' . $payload['printDate'] . self::LF;
+
+        // ── Column header ─────────────────────────────────────────────────────
+        // Cols (Font B): name(23) + un(right,4) + normal(right,12) + especial(right,12)
+        // plus 3 single-space separators = 54
+        $colUnit = 4; $colNormal = 12; $colSpecial = 12;
+        $colName = $bodyWidth - $colUnit - $colNormal - $colSpecial - 3;
+
+        $out .= $this->centeredDivider('-', $bodyWidth);
+        $out .= $this->centeredLine(
+            $this->pad('PRODUCTO', $colName)
+          . ' ' . $this->padL('UN',       $colUnit)
+          . ' ' . $this->padL('NORMAL',   $colNormal)
+          . ' ' . $this->padL('ESPECIAL', $colSpecial),
+            $bodyWidth
+        );
+        $out .= $this->centeredDivider('-', $bodyWidth);
+
+        // ── One section per customer ──────────────────────────────────────────
+        $totalItems = 0;
+        $first      = true;
+        foreach ($sections as $section) {
+            if (!$first) {
+                $out .= self::LF;   // blank line between customers
+            }
+            $first = false;
+
+            $label = $this->enc($section['label']);
+            $out .= self::BOLD_ON . $this->centeredLine($this->truncate($label, $bodyWidth), $bodyWidth) . self::BOLD_OFF;
+            if (!empty($section['business_name'])) {
+                $biz = $this->enc($section['business_name']);
+                $out .= $this->centeredLine($this->truncate('  ' . $biz, $bodyWidth), $bodyWidth);
+            }
+
+            foreach ($section['items'] as $item) {
+                $totalItems++;
+                $name    = $this->enc($item['name']);
+                $numbers = $this->padL($item['sale_unit'] === 'KG' ? 'kg' : 'und', $colUnit)
+                         . ' ' . $this->padL($this->cop($item['base_price']),    $colNormal)
+                         . ' ' . $this->padL($this->cop($item['special_price']), $colSpecial);
+
+                if (mb_strlen($name) <= $colName) {
+                    $out .= $this->centeredLine($this->pad($name, $colName) . ' ' . $numbers, $bodyWidth);
+                } else {
+                    // Long name: wrap across full width, figures aligned below
+                    $out .= $this->centeredWrapped($name, $bodyWidth);
+                    $out .= $this->centeredLine($this->pad('', $colName) . ' ' . $numbers, $bodyWidth);
+                }
+            }
+        }
+        $out .= $this->centeredDivider('=', $bodyWidth);
+
+        $out .= $this->centeredTwoCol('Clientes:',  (string) count($sections), $bodyWidth);
+        $out .= $this->centeredTwoCol('Productos:', (string) $totalItems,      $bodyWidth);
+        $out .= $this->centeredDivider('=', $bodyWidth);
+
+        // ── Closing note (shop footer greeting omitted — this is not a receipt) ─
+        if (!empty($payload['note'])) {
+            $out .= $this->centeredWrapped($this->enc($payload['note']), $bodyWidth);
+        }
+
+        // Auto length: no minimum padding, no signature block
+        $out .= self::LF . self::LF . self::LF;
+        $out .= self::CUT;
+        return $out;
+    }
+
 }

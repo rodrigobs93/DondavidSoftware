@@ -85,6 +85,10 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::post('/invoices/{invoice}/fe-mark-issued', [InvoiceController::class, 'feMarkIssued'])
             ->name('invoices.fe-mark-issued');
 
+        // Invoice inline edit (admin correction of an existing factura)
+        Route::put('/invoices/{invoice}', [InvoiceController::class, 'update'])
+            ->name('invoices.update');
+
         // Products
         Route::get('/products', [ProductController::class, 'index'])->name('products.index');
         Route::post('/products', [ProductController::class, 'store'])->name('products.store');
@@ -111,6 +115,9 @@ Route::middleware(['auth', 'lan'])->group(function () {
         Route::get('/customers/{customer}/edit', [CustomerController::class, 'edit'])->name('customers.edit');
         Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::delete('/customers/{customer}', [CustomerController::class, 'destroy'])->name('customers.destroy');
+        // Special prices report — one ticket with every customer's agreed prices.
+        // Literal segment; declared before the /customers/{customer} routes.
+        Route::post('/customers/special-prices/print', [CustomerController::class, 'printSpecialPrices'])->name('customers.special-prices.print');
         Route::post('/customers/{customer}/prices', [CustomerController::class, 'upsertPrice'])->name('customers.prices.upsert');
         Route::patch('/customers/{customer}/prices/{product}', [CustomerController::class, 'updatePrice'])->name('customers.prices.update');
         Route::delete('/customers/{customer}/prices/{product}', [CustomerController::class, 'deletePrice'])->name('customers.prices.delete');

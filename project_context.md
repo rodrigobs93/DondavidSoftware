@@ -78,6 +78,11 @@
   - UNIT: integer only.
 - Category chips for product filtering.
 - Quantity panel with KG/unit toggle.
+- **Temporary (off-catalog) products** — `+ Temporal` button opens a panel with
+  description, KG/UNIT toggle, unit price and quantity. The line is stored as an
+  `InvoiceItem` with `product_id = null` (name/unit snapshots only): no `products`
+  row is created, it never shows up in searches or quotations, and it takes part
+  in every total exactly like a catalog line.
 - Optional delivery fee and notes.
 - Mixed payments: CASH, CARD, NEQUI, DAVIPLATA, BREB (payment chips UI).
 - Invoice states set automatically: **PAID** (balance=0), **PARTIAL** (partial payment), **PENDING** (no payment).
@@ -110,6 +115,12 @@
 ### Customers
 - Fields: name, `doc_type` (NIT/CC), `doc_number`, phone, email, address, `business_name` (required when doc_type = NIT).
 - Special prices per customer/product: created/edited/deleted in the customer detail view; applied automatically on sale by `customer_id`.
+- **Special prices report** — "Imprimir precios especiales" button in the customers
+  list header (`POST /customers/special-prices/print`). Prints a single thermal
+  ticket with the agreed prices of the *whole clientele*, one section per customer,
+  showing the normal price alongside for comparison. Only customers/products that
+  actually have a special price appear. Informational: no invoice, payment or
+  `print_jobs` record.
 - Soft delete if customer has invoices; hard delete otherwise.
 - Special **GENERIC** customer for fast sales without data entry (blocked when FE is required).
 
@@ -166,6 +177,16 @@
 - No "VENTA RAPIDA" title.
 - Address word-wrapped same as invoice.
 - Automatic length (no minimum).
+
+### Special Prices Ticket (`renderPreciosEspeciales()`)
+- Same centered 54-column body strategy as the invoice / cartera / cotización.
+- Title `PRECIOS ESPECIALES` + print date, then the table header
+  `PRODUCTO(23) UN(4) NORMAL(12) ESPECIAL(12)` printed **once**, followed by one
+  section per customer (bold name, indented business name, blank line between
+  sections). Closes with `Clientes:` / `Productos:` counts and a note.
+- Long product names wrap to full width with the figures aligned on the next line.
+- Shop footer greeting intentionally omitted (not a purchase receipt).
+- Automatic length (no minimum padding, no signature block).
 
 ### Marquilla Ticket (`renderMarquilla()`)
 - Larger logo: 480-dot target width, 240-dot max height.

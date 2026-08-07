@@ -2,12 +2,26 @@
 @section('title', 'Clientes')
 
 @section('content')
-<div class="flex items-center justify-between mb-4">
+<div x-data="customerFilter()">
+
+<div class="flex items-center justify-between mb-4 flex-wrap gap-2">
     <h1 class="text-xl font-bold text-gray-800">Clientes</h1>
-    <a href="{{ route('customers.create') }}" class="pos-btn-primary">+ Nuevo Cliente</a>
+    <div class="flex gap-2 flex-wrap">
+        <button type="button" class="pos-btn pos-btn-secondary"
+                :disabled="printingPrices"
+                @click="printSpecialPrices()"
+                x-text="printingPrices ? 'Imprimiendo…' : 'Imprimir precios especiales'">
+        </button>
+        <a href="{{ route('customers.create') }}" class="pos-btn-primary">+ Nuevo Cliente</a>
+    </div>
 </div>
 
-<div x-data="customerFilter()">
+{{-- Print feedback --}}
+<div x-show="printError" x-cloak
+     class="mb-3 p-2 bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg" x-text="printError"></div>
+<div x-show="printSuccess" x-cloak
+     class="mb-3 p-2 bg-green-50 border border-green-200 text-green-700 text-sm rounded-lg" x-text="printSuccess"></div>
+
 
     {{-- Search bar --}}
     <div class="bg-white rounded-lg shadow p-3 mb-4 flex gap-3 items-center">
@@ -144,6 +158,39 @@ function customerFilter() {
         customers: __initialCustomers,
         loading: false,
         searching: {{ $search ? 'true' : 'false' }},
+
+        // Special-prices ticket (whole clientele, grouped by customer)
+        printingPrices: false,
+        printSuccess: '',
+        printError: '',
+
+        async printSpecialPrices() {
+            this.printError = ''; this.printSuccess = '';
+            this.printingPrices = true;
+            try {
+                const res = await fetch('{{ route('customers.special-prices.print') }}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+                    },
+                });
+                const data = await res.json().catch(() => ({}));
+                if (res.ok && data.ok) {
+                    this.printSuccess = `Listado impreso: ${data.printed} precio(s) especial(es) de ${data.customers} cliente(s).`;
+                    setTimeout(() => this.printSuccess = '', 4000);
+                } else {
+                    this.printError = data.error
+                        || data.message
+                        || 'Error al imprimir. Verifica la impresora.';
+                }
+            } catch {
+                this.printError = 'Error de conexión. Verifica la impresora.';
+            } finally {
+                this.printingPrices = false;
+            }
+        },
 
         async fetchCustomers() {
             const term = this.$refs.searchInput.value.trim();

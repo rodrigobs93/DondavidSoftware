@@ -1671,3 +1671,198 @@ nivel de repositorio** (no global) para coincidir con el historial existente:
 
 El push quedó pendiente de autenticación interactiva de GitHub (Git Credential
 Manager sin credenciales guardadas en este equipo).
+
+---
+
+## Sesión 2026-07-24 (parte 2) — Precios especiales imprimibles · botón Genérico · productos temporales
+
+Tres mejoras salidas de las pruebas funcionales. Sin migraciones nuevas: el
+esquema ya soportaba todo lo necesario.
+
+---
+
+### Mejora 1 — Reporte imprimible de precios especiales (toda la clientela)
+
+**Problema:** los precios especiales se configuran en `Customers/{id}/Edit` pero
+no había forma de consultarlos ni de sacarlos en papel.
+
+**Diseño (ajustado tras la primera revisión):** un **único botón en el header de
+`/customers`** que imprime un solo tiquete con los precios especiales de **todos**
+los clientes, agrupados por cliente. La primera versión traía además una vista de
+detalle por cliente (`/customers/{id}/special-prices`) y un enlace por fila; el
+dueño la consideró innecesaria y se **eliminó** — el reporte global ya contiene la
+sección de cada cliente. Es informativo: no crea venta, factura, pago ni fila en
+`print_jobs` (impresión síncrona, como cartera/cotización/marquillas).
+
+| Archivo | Cambio |
+|---|---|
+| `routes/web.php` | `POST /customers/special-prices/print` (`customers.special-prices.print`), grupo **admin**. Segmento literal, declarada antes de las rutas `/customers/{customer}`. |
+| `CustomerController` | Constructor con DI de `EscPosTicketRenderer` + `ThermalPrinterService` (igual que `CarteraController`/`CotizacionController`, para poder mockear en tests). Nuevo método `printSpecialPrices()` — sin parámetros, recorre toda la clientela. |
+| `customers/index.blade.php` | Botón "Imprimir precios especiales" junto a "+ Nuevo Cliente"; el `x-data="customerFilter()"` se movió para envolver también el header. Estado `printingPrices`/`printSuccess`/`printError` + método `printSpecialPrices()` (AJAX). Banner verde con el resumen "N precio(s) especial(es) de M cliente(s)". |
+| `EscPosTicketRenderer` | Nuevo `renderPreciosEspeciales(payload)` con `sections` (una por cliente). |
+
+**Reglas del reporte:**
+- Solo clientes que **tienen** precios especiales (`whereHas('specialPrices.product')`)
+  y, dentro de cada uno, solo productos con precio especial — nunca el catálogo completo.
+- Excluye productos soft-deleted: la fila de precio sobrevive al borrado del
+  producto pero no hay nada que imprimir.
+- Precios releídos de la BD en cada impresión (mismo criterio que la cotización).
+- Clientes en orden alfabético; productos alfabéticos dentro de cada cliente.
+- 422 si ningún cliente tiene precios especiales; 500 si falla la impresora.
+
+**Ticket (`renderPreciosEspeciales`)** — misma estrategia de cuerpo centrado a
+54 columnas que factura/cartera/cotización: logo + header de tienda, título
+`PRECIOS ESPECIALES` + fecha, cabecera de tabla
+`PRODUCTO(23) UN(4) NORMAL(12) ESPECIAL(12)` impresa **una sola vez**, y luego una
+sección por cliente (nombre en negrita, razón social indentada debajo si existe,
+línea en blanco entre secciones — patrón de `renderCarteraResumen`). Cierra con
+`Clientes:` / `Productos:` y la nota. Nombres largos: se envuelven a ancho completo
+y las cifras quedan alineadas en la línea siguiente (patrón de `renderCotizacion`).
+Sin footer de tienda ("Gracias por su compra" no aplica a un listado de precios),
+largo automático.
+
+> **Nota:** `products` no tiene columna de código/SKU, así que el tiquete
+> identifica cada producto por nombre.
+
+---
+
+### Mejora 2 — Eliminado el botón "Genérico" de `/sales/new`
+
+`resources/views/sales/create.blade.php`:
+- Removido el chip `GENÉRICO` junto al buscador de clientes y la constante JS
+  muerta `__genericName`.
+- El wrapper `flex gap-2 items-start` (existía solo para acomodar el chip) se
+  simplificó a un `div` normal.
+
+**Lo que NO cambió (a propósito):**
+- `__genericId` sigue emitiéndose: el `<input type="hidden" name="customer_id">`
+  cae en él cuando el cajero no selecciona a nadie — ese sigue siendo el camino
+  para facturar al cliente genérico, y ahora es el único.
+- El label `(GENÉRICO)` que marca al cliente genérico ya seleccionado se queda.
+- `isGenericSelected` sigue en uso (`canSubmit` y el formulario FE en línea):
+  el genérico todavía puede elegirse desde el dropdown de búsqueda.
+
+---
+
+### Mejora 3 — Productos temporales dentro de una factura
+
+**Problema:** vender artículos de una sola vez (favores al cliente) obligaba a
+crearlos primero en el catálogo.
+
+**Análisis previo:** el backend **ya lo soportaba**. `invoice_items.product_id`
+es `nullable` con FK `ON DELETE SET NULL`, la tabla guarda
+`product_name_snapshot` + `sale_unit_snapshot`, y `SaleController` ya validaba
+`items.*.product_id => ['nullable', 'exists:products,id']`. No hacía falta ni
+migración ni una tabla de líneas ad-hoc: una línea temporal es simplemente una
+línea con `product_id = null`. Se descartó crear productos "fantasma"
+desactivados en `products` (ensuciaría catálogo, búsquedas y cotizaciones).
+
+| Archivo | Cambio |
+|---|---|
+| `sales/create.blade.php` | Botón `+ Temporal` junto al buscador global; panel ámbar con Descripción · toggle Por unidad/Por kilo · Precio · Cantidad · "Agregar al carrito". Estado `showTempForm`/`tempForm`/`tempError`, computeds `tempKg`/`tempQuantity`/`tempLineTotal`/`tempValid`, métodos `openTempForm`/`cancelTempForm`/`setTempUnit`/`onTempGramsInput`/`addTempItem`. |
+| `sales/create.blade.php` | El hidden `items[i][product_id]` se envuelve en `<template x-if="item.product_id">` — se **omite** en líneas temporales para que el servidor reciba `null` y no `''`. Badge "temporal" en el carrito. |
+| `sales/create.blade.php` | `addProductItem` no consulta `customPrices` cuando `p.id == null`; `selectCustomer` no re-tarifa líneas temporales (conservan el precio digitado al cambiar de cliente). |
+| `SaleController::store()` | Normaliza `product_id` vacío a `null` dentro del recálculo de totales (defensa por si un navegador envía `''`). |
+| `SaleService` | Constructor con DI de `EscPosTicketRenderer` + `ThermalPrinterService` (antes `new` directo en `createPrintJob`), para poder mockear la impresora en tests. Se resuelve siempre por contenedor — no existe ningún `new SaleService()`. |
+
+**Comportamiento:**
+- La línea temporal es una línea normal: mismo `addProductItem` →
+  `computeLineTotal` → subtotal → domicilio → redondeo a 50 → pagos → total, y
+  el mismo recálculo con bcmath en el servidor.
+- KG en gramos (helpers `window.KgGrams`), UNIT entero — igual que el catálogo.
+- El panel queda abierto tras agregar (recuerda la unidad): varias líneas
+  temporales seguidas sin reabrir.
+- **No** se escribe en `products`, **no** aparece en búsquedas ni cotizaciones,
+  y no hay inventario que afectar (el sistema no lo maneja).
+- El nombre se imprime en el tiquete vía `product_name_snapshot`.
+
+**Descuentos e impuestos:** la factura no tiene campos de descuento por línea ni
+de IVA, así que no aplican a las líneas temporales (ni a las normales). El
+precio unitario editable en el carrito cubre el caso de "hacer precio".
+
+---
+
+### Pruebas
+
+| Archivo | Casos |
+|---|---|
+| `tests/Feature/SpecialPricesReportTest.php` | 10 — auth/admin, el botón aparece en `/customers`, bytes con precios y acentos sanitizados, agrupación por cliente en orden alfabético (cada producto dentro de su sección), exclusión de clientes sin precios especiales, exclusión de productos soft-deleted, 422 cuando nadie tiene precios, 500 impresora caída, no crea factura/print_job. Los casos con conteos exactos limpian primero `customer_product_prices` (`isolate()`) porque corren contra la BD de desarrollo. |
+| `tests/Feature/TemporaryInvoiceItemTest.php` | 7 — la página ofrece el formulario temporal y ya no el chip genérico, línea temporal UNIT con `product_id = null` sin crear producto, línea KG con decimales en totales, mezcla catálogo + temporal (subtotal/pagos/estado PAID), `product_id = ''` normalizado a null, nombre obligatorio, nombre impreso en el tiquete. |
+
+**Suite completa: 41/42.** El único fallo es `ExampleTest::the_application_returns_a_successful_response`
+(stub de Laravel que pide `/` sin autenticar y recibe 302 → `/login`);
+**verificado que también falla en el árbol limpio** — es previo y ajeno a estos cambios.
+
+Correr con la BD de este equipo: `php artisan test` (aquí `.env` y `phpunit.xml`
+coinciden en `mi_pos`; en el PC original hay que pasar los overrides de
+`don_david`).
+
+---
+
+---
+
+## Sesión 2026-08-07 — Edición inline de facturas (corrección de facturas ya creadas)
+
+Hasta ahora la vista de detalle `invoices/show` era 100 % de solo lectura y no
+existía ningún camino de escritura para facturas: los `InvoiceItem` se diseñaron
+como *snapshots* inmutables (write-once) y la única corrección prevista era el
+flag `voided` (nunca implementado). Se añadió **edición in situ, solo admin**, en
+la propia vista de detalle, con **modo edición atómico** (un botón "Editar"
+convierte los valores en campos editables, con recálculo en vivo y un único
+"Guardar" que persiste todo en una transacción con row-locks).
+
+### Decisiones (acordadas con el dueño)
+
+- **UX:** modo edición atómico (no guardado por campo). Un solo `PUT`, una transacción.
+- **Permisos:** solo admin (grupo de rutas `admin`), como la edición inline de productos.
+- **Editable:** fecha, líneas (cantidad, precio, cambiar producto vía selector del
+  catálogo, agregar/eliminar líneas — incluye temporales `product_id=null`),
+  domicilio, notas y **cambiar el cliente**.
+- **Total < pagado:** se permite; el excedente se **devuelve al saldo a favor** del
+  cliente (`credit_balance`) documentado con un nuevo tipo de `CreditMovement`.
+
+### Cambios
+
+| Archivo | Cambio |
+|---|---|
+| `2026_08_07_000001_add_refund_type_to_credit_movements.php` | Nueva migración: amplía el CHECK `credit_movements_type_check` a `IN ('APPLIED_TO_INVOICE','REFUND_FROM_EDIT')`. Guardado `!= sqlite`, con `down()` inverso. |
+| `app/Support/ProductCatalog.php` | Nuevo helper `ProductCatalog::tree()` con el árbol categoría→productos del picker. Extraído de `SaleController::create` (que ahora lo reutiliza) para no duplicar y alimentar también el editor. |
+| `app/Services/SaleService.php` | Nuevo `updateSale(Invoice, data, User)`: en `DB::transaction` con `lockForUpdate()` sobre factura + cliente, recalcula subtotal/total (mismas reglas bcmath + `roundUp50`/FE que `createSale`), reemplaza los ítems (delete + reinsert), reconcilia `paid_amount`/`balance`/`status` y, si el total cae por debajo de lo pagado, refunda el excedente a `credit_balance` con `CreditMovement` type `REFUND_FROM_EDIT`. No reasigna consecutivo ni imprime. |
+| `app/Http/Controllers/InvoiceController.php` | `show()` ahora expone `$isAdmin`, `$canEdit` (admin y `fe_status != ISSUED`), `$cats`, `$generic`. Nuevo `update()` (ruta admin): bloquea FE emitida, valida igual que `SaleController::store` (+ `customer_id`), re-valida FE si `requires_fe`, normaliza `product_id` vacío→null, delega en `updateSale`, redirige con flash. |
+| `routes/web.php` | `PUT /invoices/{invoice}` → `invoices.update` en el grupo `admin`. |
+| `resources/views/invoices/show.blade.php` | Envuelta en `x-data="invoiceEditor()"` (solo cuando `$canEdit`). Botón "✏️ Editar"; el bloque de solo-lectura y las tarjetas de acción (FE/abono/saldo/impresión) se ocultan con `x-show="!editing"`. Componente Alpine con estado de ítems, picker de catálogo, cliente, totales reactivos y refund preview. Seed JSON de la factura + `$cats`. |
+| `resources/views/invoices/_editor.blade.php` | Nuevo partial: formulario `@method('PUT')` con fecha, buscador de cliente (`/customers/search`), filas editables (cantidad KG-en-gramos/UNIT, precio, cambiar producto, eliminar), agregar producto/temporal (picker reutilizado de `sales/create`), domicilio, notas, preview de subtotal/total/saldo + aviso de devolución a saldo a favor, y Guardar/Cancelar. |
+
+**Fix post-implementación (`novalidate`):** el `<form>` del editor lleva `novalidate`.
+Los inputs-editores visibles de cantidad/precio no tienen `name` (los datos viajan
+por los `<input type="hidden" name="items[..]">`) y el editor KG/UNIT inactivo queda
+en el DOM oculto (`display:none`). Sin `novalidate`, la validación HTML5 intentaba
+validar ese control oculto no enfocable (p. ej. una línea KG con el input UNIT
+`min="1" step="1"` conteniendo `1.25`) y **bloqueaba el submit en silencio** con
+`An invalid form control with name='' is not focusable`. La validación real es
+Alpine (`canSave`) + servidor, así que la nativa no se necesita.
+
+### Efectos secundarios considerados
+
+- **Sin inventario** que ajustar (el sistema no lo maneja). **Sin IVA/descuentos.**
+- **Cartera/dashboard/FE/`pendingInvoices`** leen `total`/`balance` en vivo → se
+  auto-corrigen. **`reports/payments`** lee montos de `Payment` (intactos).
+- El refund baja `paid_amount` por debajo de la suma de `Payment` (espejo de
+  `applyCredit`, que lo sube sin fila `Payment`): consistente y auditado por el
+  ledger inmutable.
+- **FE `ISSUED` = inmutable:** sin botón editar y `update()` lo rechaza.
+- **Fecha** solo-admin (toda la edición lo es); mover la fecha reubica la factura
+  en los buckets de dashboard/reportes.
+
+### Pruebas
+
+`tests/Feature/InvoiceEditTest.php` — 16 casos (PHPUnit + `DatabaseTransactions`,
+fixtures directos `Invoice`/`InvoiceItem`/`Payment` sin tocar impresora): editar
+cantidad/precio/fecha, cambiar producto (snapshot), agregar/eliminar línea,
+domicilio→total, cambiar cliente, **total<pagado→refund a saldo a favor con
+`CreditMovement REFUND_FROM_EDIT`**, recálculo PARCIAL, cantidad/precio/ítems
+inválidos (`assertSessionHasErrors`), FE emitida bloqueada, no-admin 403, y
+render del editor sin romper la vista de solo-lectura. **16/16 verde.**
+
+**Suite completa: 57 passed, 1 failed** — el único fallo sigue siendo
+`ExampleTest` (302→`/login`), previo y ajeno.

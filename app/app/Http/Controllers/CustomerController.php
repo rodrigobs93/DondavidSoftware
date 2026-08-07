@@ -5,11 +5,21 @@ namespace App\Http\Controllers;
 use App\Models\Customer;
 use App\Models\CustomerProductPrice;
 use App\Models\Product;
+use App\Models\Setting;
+use App\Services\EscPosTicketRenderer;
+use App\Services\ThermalPrinterService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class CustomerController extends Controller
 {
+    // Constructor DI (same pattern as CarteraController/CotizacionController)
+    // so the printer can be mocked in tests.
+    public function __construct(
+        private EscPosTicketRenderer $renderer,
+        private ThermalPrinterService $printer,
+    ) {}
+
     public function index(Request $request)
     {
         $search = $request->input('search', '');
@@ -204,5 +214,67 @@ class CustomerController extends Controller
             ->delete();
 
         return response()->json(['success' => true]);
+    }
+
+    // ── Special prices report (single ticket, whole clientele) ──────────────
+
+    /**
+     * Print one thermal ticket with every agreed special price, grouped by
+     * customer. Only customers that actually have prices appear, and only
+     * products that still exist in the catalog (soft-deleted products keep
+     * their `price` row but there is nothing to print). Prices are read fresh
+     * from the DB on every print, like the cotización.
+     *
+     * Informational only: no invoice, payment or print_jobs record.
+     */
+    public function printSpecialPrices()
+    {
+        $customers = Customer::whereHas('specialPrices.product')
+            ->with(['specialPrices' => fn($q) => $q->whereHas('product')
+                                                   ->with('product:id,name,sale_unit,base_price')])
+            ->orderBy('name')
+            ->get();
+
+        $sections = $customers
+            ->map(fn($c) => [
+                'label'         => $c->name,
+                'business_name' => $c->business_name ?? '',
+                'items'         => $c->specialPrices
+                    ->sortBy(fn($cpp) => mb_strtolower($cpp->product->name))
+                    ->map(fn($cpp) => [
+                        'name'          => $cpp->product->name,
+                        'sale_unit'     => $cpp->product->sale_unit,
+                        'base_price'    => (string) $cpp->product->base_price,
+                        'special_price' => (string) $cpp->price,
+                    ])->values()->all(),
+            ])
+            ->values()
+            ->all();
+
+        if (empty($sections)) {
+            return response()->json([
+                'error' => 'Ningún cliente tiene precios especiales configurados.',
+            ], 422);
+        }
+
+        $totalItems = array_sum(array_map(fn($s) => count($s['items']), $sections));
+
+        $payload = [
+            'shop'      => Setting::shopInfo(),
+            'printDate' => now()->setTimezone('America/Bogota')->format('d/m/Y H:i'),
+            'sections'  => $sections,
+            'note'      => 'Nota: Precios acordados con cada cliente, sujetos a cambios.',
+        ];
+
+        try {
+            $this->printer->send($this->renderer->renderPreciosEspeciales($payload));
+            return response()->json([
+                'ok'        => true,
+                'customers' => count($sections),
+                'printed'   => $totalItems,
+            ]);
+        } catch (\Throwable $e) {
+            return response()->json(['error' => 'Error al imprimir: ' . $e->getMessage()], 500);
+        }
     }
 }

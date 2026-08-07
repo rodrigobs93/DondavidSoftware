@@ -46,8 +46,8 @@
                      :class="activeTab==='cliente' ? 'block' : 'hidden md:block'">
                     <h2 class="font-semibold text-gray-700 mb-3">Cliente</h2>
 
-                    <div class="flex gap-2 items-start">
-                        <div class="relative flex-1">
+                    <div>
+                        <div class="relative">
                             <input type="text" x-model="customerSearch"
                                    x-ref="customerInput"
                                    inputmode="text" data-keyboard="text"
@@ -76,15 +76,6 @@
                                 </template>
                             </div>
                         </div>
-
-                        {{-- Quick GENÉRICO chip --}}
-                        @if($generic)
-                        <button type="button"
-                                @click="selectCustomer({ id: {{ $generic->id }}, name: '{{ $generic->name }}', is_generic: true, doc_type: null, doc_number: null, requires_fe: false })"
-                                class="px-4 py-3 rounded-lg text-base font-semibold border border-gray-300 text-gray-500 hover:border-blue-400 hover:text-blue-600 whitespace-nowrap shrink-0">
-                            GENÉRICO
-                        </button>
-                        @endif
                     </div>
 
                     <div x-show="selectedCustomer" class="mt-2 text-sm text-gray-600">
@@ -157,24 +148,120 @@
                      :class="activeTab==='productos' ? 'block' : 'hidden md:block'">
                     <h2 class="font-semibold text-gray-700 mb-3">Productos</h2>
 
-                    {{-- Global search --}}
-                    <div class="relative mb-3">
-                        <input type="text" x-model="globalSearch"
-                               @input.debounce.200ms=""
-                               placeholder="Buscar en todo el catálogo…"
-                               autocomplete="off"
-                               class="border rounded px-3 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
-                        <div x-show="globalResults.length > 0"
-                             class="absolute z-20 w-full bg-white border rounded shadow-lg mt-1 max-h-52 overflow-auto">
-                            <template x-for="p in globalResults" :key="'gs-'+p.id">
-                                <button type="button" @click="selectPending(p); globalSearch=''"
-                                        class="w-full text-left px-3 py-3 hover:bg-blue-50 text-base flex items-center justify-between">
-                                    <span x-text="p.name"></span>
-                                    <span class="text-xs text-gray-400"
-                                          x-text="'$'+formatNum(p.base_price)+' / '+(p.sale_unit==='KG'?'kg':'und')"></span>
-                                </button>
-                            </template>
+                    {{-- Global search + temporary product --}}
+                    <div class="flex gap-2 items-start mb-3">
+                        <div class="relative flex-1">
+                            <input type="text" x-model="globalSearch"
+                                   @input.debounce.200ms=""
+                                   placeholder="Buscar en todo el catálogo…"
+                                   autocomplete="off"
+                                   class="border rounded px-3 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-blue-400">
+                            <div x-show="globalResults.length > 0"
+                                 class="absolute z-20 w-full bg-white border rounded shadow-lg mt-1 max-h-52 overflow-auto">
+                                <template x-for="p in globalResults" :key="'gs-'+p.id">
+                                    <button type="button" @click="selectPending(p); globalSearch=''"
+                                            class="w-full text-left px-3 py-3 hover:bg-blue-50 text-base flex items-center justify-between">
+                                        <span x-text="p.name"></span>
+                                        <span class="text-xs text-gray-400"
+                                              x-text="'$'+formatNum(p.base_price)+' / '+(p.sale_unit==='KG'?'kg':'und')"></span>
+                                    </button>
+                                </template>
+                            </div>
                         </div>
+
+                        {{-- Temporary (off-catalog) product — lives only in this invoice --}}
+                        <button type="button" @click="openTempForm()"
+                                class="px-4 py-3 rounded-lg text-base font-semibold border border-dashed border-amber-400 bg-amber-50 text-amber-700 hover:bg-amber-100 whitespace-nowrap shrink-0">
+                            + Temporal
+                        </button>
+                    </div>
+
+                    {{-- Temporary product panel — one form, one tap to add --}}
+                    <div x-show="showTempForm" x-cloak
+                         class="border-2 border-amber-400 rounded-lg p-4 bg-amber-50 mb-3 space-y-3">
+                        <div class="flex items-center justify-between">
+                            <span class="font-semibold text-amber-900">Producto temporal</span>
+                            <button type="button" @click="cancelTempForm()"
+                                    class="pos-btn-icon">&times;</button>
+                        </div>
+                        <p class="text-xs text-amber-700 -mt-1">
+                            Solo existe en esta factura. No se guarda en el catálogo de productos.
+                        </p>
+
+                        <input type="text" x-model="tempForm.name"
+                               x-ref="tempNameInput"
+                               data-keyboard="text" maxlength="150"
+                               placeholder="Descripción del producto *"
+                               autocomplete="off"
+                               class="border rounded px-3 py-3 text-base w-full focus:outline-none focus:ring-2 focus:ring-amber-400">
+
+                        {{-- Unit toggle --}}
+                        <div class="flex gap-2">
+                            <button type="button" @click="setTempUnit('UNIT')"
+                                    class="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors"
+                                    :class="tempForm.sale_unit === 'UNIT'
+                                        ? 'bg-orange-500 text-white border-orange-500'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:border-orange-400'">
+                                Por unidad
+                            </button>
+                            <button type="button" @click="setTempUnit('KG')"
+                                    class="flex-1 px-4 py-2.5 rounded-lg text-sm font-semibold border transition-colors"
+                                    :class="tempForm.sale_unit === 'KG'
+                                        ? 'bg-purple-500 text-white border-purple-500'
+                                        : 'bg-white text-gray-600 border-gray-300 hover:border-purple-400'">
+                                Por kilo
+                            </button>
+                        </div>
+
+                        <div class="flex gap-2 items-end flex-wrap">
+                            {{-- Unit price --}}
+                            <div class="flex-1 min-w-32">
+                                <label class="block text-xs text-amber-800 mb-1"
+                                       x-text="tempForm.sale_unit === 'KG' ? 'Precio por kg *' : 'Precio por unidad *'"></label>
+                                <div class="flex items-center gap-1">
+                                    <span class="text-gray-500">$</span>
+                                    <input type="number" x-model.number="tempForm.unit_price"
+                                           inputmode="numeric" data-keyboard="numeric"
+                                           min="0" step="100" placeholder="0"
+                                           class="border rounded px-3 py-3 text-base text-right w-full focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                </div>
+                            </div>
+
+                            {{-- Quantity: grams for KG, integer units for UNIT --}}
+                            <div class="flex-1 min-w-32">
+                                <label class="block text-xs text-amber-800 mb-1"
+                                       x-text="tempForm.sale_unit === 'KG' ? 'Cantidad (g) *' : 'Cantidad (und) *'"></label>
+                                <input x-show="tempForm.sale_unit === 'KG'"
+                                       type="text" inputmode="numeric" data-keyboard="numeric"
+                                       x-model="tempForm.qty"
+                                       @input="onTempGramsInput($event)"
+                                       @keydown.enter.prevent="addTempItem()"
+                                       placeholder="0"
+                                       class="border rounded px-3 py-3 text-base text-center w-full focus:outline-none focus:ring-2 focus:ring-amber-400">
+                                <input x-show="tempForm.sale_unit !== 'KG'"
+                                       type="number" inputmode="numeric" data-keyboard="numeric"
+                                       min="1" step="1"
+                                       x-model="tempForm.qty"
+                                       @keydown.enter.prevent="addTempItem()"
+                                       placeholder="1"
+                                       class="border rounded px-3 py-3 text-base text-center w-full focus:outline-none focus:ring-2 focus:ring-amber-400">
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-2 flex-wrap">
+                            <span class="text-sm text-amber-900"
+                                  x-show="tempLineTotal > 0"
+                                  x-text="'Total línea: $' + formatNum(tempLineTotal)
+                                          + (tempForm.sale_unit === 'KG' ? ' (' + tempKg.toFixed(3) + ' kg)' : '')"></span>
+                            <button type="button" @click="addTempItem()"
+                                    :disabled="!tempValid"
+                                    :class="tempValid ? 'bg-amber-600 hover:bg-amber-700 text-white' : 'bg-gray-300 text-gray-400 cursor-not-allowed'"
+                                    class="ml-auto px-6 py-3 rounded-lg font-semibold text-base transition-colors">
+                                Agregar al carrito
+                            </button>
+                        </div>
+
+                        <p x-show="tempError" x-cloak class="text-red-600 text-xs" x-text="tempError"></p>
                     </div>
 
                     {{-- Category chips --}}
@@ -343,7 +430,12 @@
 
                     <template x-for="(item, idx) in items" :key="item._key">
                         <div class="py-2.5 border-b last:border-0">
-                            <input type="hidden" :name="'items['+idx+'][product_id]'"   :value="item.product_id">
+                            {{-- Temporary items carry no product_id: the input is omitted
+                                 entirely so the server receives null (an empty string
+                                 would hit the FK column). --}}
+                            <template x-if="item.product_id">
+                                <input type="hidden" :name="'items['+idx+'][product_id]'" :value="item.product_id">
+                            </template>
                             <input type="hidden" :name="'items['+idx+'][product_name]'" :value="item.product_name">
                             <input type="hidden" :name="'items['+idx+'][sale_unit]'"    :value="item.sale_unit">
                             <input type="hidden" :name="'items['+idx+'][unit_price]'"   :value="item.unit_price">
@@ -351,7 +443,13 @@
 
                             {{-- Row 1: name + remove --}}
                             <div class="flex items-center justify-between gap-1">
-                                <span class="text-base font-medium truncate" x-text="item.product_name"></span>
+                                <span class="text-base font-medium truncate">
+                                    <span x-text="item.product_name"></span>
+                                    <span x-show="!item.product_id"
+                                          class="ml-1 align-middle px-1.5 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-700">
+                                        temporal
+                                    </span>
+                                </span>
                                 <button type="button" @click="removeItem(idx)"
                                         class="pos-btn-icon pos-btn-icon-danger shrink-0">&times;</button>
                             </div>
@@ -535,8 +633,10 @@
 
 <script>
 const __initialCategories = {!! json_encode($cats, JSON_HEX_TAG) !!};
+// Fallback customer for the hidden customer_id field when the cashier picks
+// nobody. The explicit "GENÉRICO" chip was removed — leaving the search box
+// blank is the (single-click-free) way to bill the generic customer.
 const __genericId          = {{ $generic?->id ?? 'null' }};
-const __genericName        = @js($generic?->name ?? '');
 const __todayStr           = new Date().toISOString().slice(0, 10);
 // Explicit class maps — full strings required so Tailwind CDN scanner detects them
 const CAT_CHIP = [
@@ -585,6 +685,11 @@ function saleForm() {
         pendingProduct:  null,
         pendingInput:    '',
 
+        // Temporary (off-catalog) product form
+        showTempForm:    false,
+        tempForm:        { name: '', sale_unit: 'UNIT', unit_price: '', qty: '' },
+        tempError:       '',
+
         showDatePicker:  false,
         invoiceDate:     '',
 
@@ -617,6 +722,29 @@ function saleForm() {
                 return this.pendingKg >= 0.001;
             }
             return parseInt(this.pendingInput) >= 1;
+        },
+
+        // ── Temporary product computeds ─────────────────────────────────────
+        get tempKg() {
+            return window.KgGrams.toKg(this.tempForm.qty);
+        },
+        get tempQuantity() {
+            // Same unit semantics as catalog items: KG stores kg, UNIT integers.
+            return this.tempForm.sale_unit === 'KG'
+                ? this.tempKg
+                : (parseInt(this.tempForm.qty) || 0);
+        },
+        get tempLineTotal() {
+            const price = parseFloat(this.tempForm.unit_price) || 0;
+            return Math.round((this.tempQuantity * price) * 100) / 100;
+        },
+        get tempValid() {
+            if (!this.tempForm.name.trim()) return false;
+            const price = parseFloat(this.tempForm.unit_price);
+            if (!(price >= 0) || this.tempForm.unit_price === '') return false;
+            return this.tempForm.sale_unit === 'KG'
+                ? this.tempQuantity >= 0.001
+                : this.tempQuantity >= 1;
         },
 
         get subtotal() {
@@ -687,6 +815,7 @@ function saleForm() {
         selectPending(p) {
             this.pendingProduct = p;
             this.pendingInput   = '';
+            this.showTempForm   = false;
             this.$nextTick(() => this.$refs.qtyInput?.focus());
         },
 
@@ -715,16 +844,72 @@ function saleForm() {
             this.pendingInput = raw;
         },
 
+        // ── Temporary (off-catalog) product ─────────────────────────────────
+        // Builds a cart line with product_id = null. From there it is an
+        // ordinary line: same addProductItem/computeLineTotal path, same
+        // totals, same hidden inputs, same InvoiceItem snapshot on the server.
+        // Nothing is written to `products` and there is no inventory to touch.
+        openTempForm() {
+            this.showTempForm   = true;
+            this.tempError      = '';
+            this.pendingProduct = null;
+            this.pendingInput   = '';
+            this.globalSearch   = '';
+            this.$nextTick(() => this.$refs.tempNameInput?.focus());
+        },
+
+        cancelTempForm() {
+            this.showTempForm = false;
+            this.tempError    = '';
+            this.tempForm     = { name: '', sale_unit: 'UNIT', unit_price: '', qty: '' };
+        },
+
+        setTempUnit(unit) {
+            if (this.tempForm.sale_unit === unit) return;
+            this.tempForm.sale_unit = unit;
+            this.tempForm.qty       = '';    // grams and units are not interchangeable
+        },
+
+        onTempGramsInput(event) {
+            const raw = window.KgGrams.rawGrams(event.target.value);
+            event.target.value = raw;
+            this.tempForm.qty  = raw;
+        },
+
+        addTempItem() {
+            this.tempError = '';
+            if (!this.tempValid) {
+                this.tempError = 'Completa descripción, precio y cantidad.';
+                return;
+            }
+            this.addProductItem({
+                id:         null,
+                name:       this.tempForm.name.trim(),
+                sale_unit:  this.tempForm.sale_unit,
+                base_price: parseFloat(this.tempForm.unit_price) || 0,
+            }, this.tempQuantity);
+
+            // Keep the panel open with the unit remembered — adding several
+            // temporary lines in a row is the common case.
+            this.tempForm.name       = '';
+            this.tempForm.unit_price = '';
+            this.tempForm.qty        = '';
+            this.$nextTick(() => this.$refs.tempNameInput?.focus());
+        },
+
         // ── Product / cart ──────────────────────────────────────────────────
         addProductItem(p, qty) {
             const basePrice      = parseFloat(p.base_price);
-            const effectivePrice = this.customPrices[p.id] ?? basePrice;
+            // Temporary items (p.id === null) never match a special price.
+            const effectivePrice = p.id != null
+                ? (this.customPrices[p.id] ?? basePrice)
+                : basePrice;
             const quantity       = qty ?? (p.sale_unit === 'KG' ? 0 : 1);
             const lineTotal      = Math.round((quantity * effectivePrice) * 100) / 100;
 
             this.items.push({
                 _key:         this._itemKey++,
-                product_id:   p.id,
+                product_id:   p.id ?? null,
                 product_name: p.name,
                 sale_unit:    p.sale_unit,
                 base_price:   basePrice,
@@ -778,6 +963,8 @@ function saleForm() {
             const list = await res.json();
             this.customPrices = Object.fromEntries(list.map(cp => [cp.product_id, parseFloat(cp.price)]));
             this.items.forEach(item => {
+                // Temporary lines are not in the catalog — keep the typed price.
+                if (item.product_id == null) return;
                 item.unit_price = this.customPrices[item.product_id] ?? item.base_price;
                 this.computeLineTotal(item);
             });

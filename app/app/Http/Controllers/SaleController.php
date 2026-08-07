@@ -4,9 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\Invoice;
-use App\Models\Product;
-use App\Models\ProductCategory;
 use App\Services\SaleService;
+use App\Support\ProductCatalog;
 use Illuminate\Http\Request;
 
 class SaleController extends Controller
@@ -16,40 +15,9 @@ class SaleController extends Controller
     public function create()
     {
         $generic = Customer::generic();
-
-        $cats = ProductCategory::where('active', true)
-            ->with(['products' => fn($q) => $q->where('active', true)->orderBy('name')])
-            ->orderBy('name')
-            ->get()
-            ->values()
-            ->map(fn($cat, $i) => [
-                'id'         => $cat->id,
-                'name'       => $cat->name,
-                'colorIndex' => $i % 6,
-                'products'   => $cat->products->map(fn($p) => [
-                    'id'         => $p->id,
-                    'name'       => $p->name,
-                    'sale_unit'  => $p->sale_unit,
-                    'base_price' => (string) $p->base_price,
-                ])->values(),
-            ]);
-
-        $uncat = Product::where('active', true)->whereNull('category_id')->orderBy('name')->get();
-        if ($uncat->isNotEmpty()) {
-            $cats->push([
-                'id'         => 0,
-                'name'       => 'Sin categoría',
-                'colorIndex' => $cats->count() % 6,
-                'products'   => $uncat->map(fn($p) => [
-                    'id'         => $p->id,
-                    'name'       => $p->name,
-                    'sale_unit'  => $p->sale_unit,
-                    'base_price' => (string) $p->base_price,
-                ])->values(),
-            ]);
-        }
-
+        $cats    = ProductCatalog::tree();
         $isAdmin = auth()->user()->isAdmin();
+
         return view('sales.create', compact('generic', 'cats', 'isAdmin'));
     }
 
@@ -119,6 +87,11 @@ class SaleController extends Controller
         // Backend recompute of totals — never trust JS
         $computedTotal = '0';
         foreach ($validated['items'] as &$item) {
+            // Temporary (off-catalog) lines carry no product_id: the row is
+            // stored with product_id = null and only the name/unit snapshot.
+            // Normalize any empty value so '' never reaches the FK column.
+            $item['product_id'] = ($item['product_id'] ?? null) ?: null;
+
             $lineTotal = bcmul((string) $item['quantity'], (string) $item['unit_price'], 2);
             $item['line_total'] = $lineTotal;
             $computedTotal = bcadd($computedTotal, $lineTotal, 2);
