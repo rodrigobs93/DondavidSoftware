@@ -13,13 +13,15 @@ class Customer extends Model
     protected $fillable = [
         'name', 'business_name', 'doc_type', 'doc_number', 'phone', 'address',
         'email', 'is_generic', 'requires_fe', 'notes', 'active', 'credit_balance',
+        'default_delivery_fee',
     ];
 
     protected $casts = [
-        'is_generic'     => 'boolean',
-        'requires_fe'    => 'boolean',
-        'active'         => 'boolean',
-        'credit_balance' => 'decimal:2',
+        'is_generic'           => 'boolean',
+        'requires_fe'          => 'boolean',
+        'active'               => 'boolean',
+        'credit_balance'       => 'decimal:2',
+        'default_delivery_fee' => 'decimal:2',
     ];
 
     public function invoices(): HasMany

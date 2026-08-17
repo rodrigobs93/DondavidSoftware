@@ -958,6 +958,11 @@ function saleForm() {
             this.customerSearch       = c.name;
             this.showCustomerDropdown = false;
             this.requiresFe           = c.requires_fe || false;
+            // Copy the customer's default domicilio into this invoice's editable
+            // field. Always overwrite so switching customers never leaves the
+            // previous one's fee; customers with no default reset it to 0. The
+            // value is only a starting point — the cashier can still change it.
+            this.deliveryFee          = c.default_delivery_fee != null ? parseFloat(c.default_delivery_fee) : 0;
             this.onFeToggle();
             const res  = await fetch(`/customers/${c.id}/prices`);
             const list = await res.json();
@@ -1007,6 +1012,7 @@ function saleForm() {
             this.selectedCustomer     = data.customer;
             this.customerSearch       = data.customer.name;
             this.showCustomerDropdown = false;
+            this.deliveryFee          = data.customer.default_delivery_fee != null ? parseFloat(data.customer.default_delivery_fee) : 0;
             this.requiresFe           = true;
             this.feError              = '';
             this.feCreating           = false;

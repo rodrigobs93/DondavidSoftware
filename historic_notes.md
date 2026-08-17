@@ -1866,3 +1866,65 @@ render del editor sin romper la vista de solo-lectura. **16/16 verde.**
 
 **Suite completa: 57 passed, 1 failed** — el único fallo sigue siendo
 `ExampleTest` (302→`/login`), previo y ajeno.
+
+---
+
+## Sesión 2026-08-17 — Valor de domicilio predeterminado por cliente
+
+El cobro de **domicilio** ya existía por factura (`invoices.delivery_fee`,
+DECIMAL 12,2, default 0): ya se editaba por factura y ya entraba en el total
+(`total = subtotal + delivery_fee`, con `roundUp50` en no-FE / exacto en FE,
+centralizado en `SaleService`). Para los clientes recurrentes con un domicilio
+fijo, el cajero tenía que **teclear el valor en cada factura**. Se añadió un
+**valor de domicilio predeterminado por cliente** que se **autocarga** al
+seleccionar el cliente en Nueva Venta. Se **reutilizó** la infraestructura de
+`delivery_fee` existente en vez de crear un concepto paralelo.
+
+### Decisiones
+
+- **Plantilla vs. copia:** `customers.default_delivery_fee` es solo una *plantilla*.
+  Al vender se **copia** al campo editable `invoices.delivery_fee` → editar la
+  plantilla nunca cambia facturas ya emitidas, y editar el domicilio de una factura
+  nunca cambia la plantilla del cliente.
+- **`NULL` vs `0`:** `NULL` = "sin domicilio configurado" (distinto de `0` = cobra
+  domicilio, pero gratis). Coherente con el manejo de campos opcionales del esquema.
+- **Autocarga solo en alta:** en `/sales/new`, al seleccionar cliente
+  `deliveryFee = default_delivery_fee ?? 0` (se **sobrescribe siempre**, así cambiar
+  de cliente nunca deja el valor del anterior). El cajero puede seguir editándolo,
+  incluido ponerlo en `$0`.
+- **Editor de facturas intacto:** su `selectCustomer` **no** re-carga la plantilla,
+  para que abrir/editar una factura antigua conserve el valor histórico realmente
+  cobrado.
+
+### Cambios
+
+| Archivo | Cambio |
+|---|---|
+| `2026_08_17_000001_add_default_delivery_fee_to_customers.php` | Nueva migración: `customers.default_delivery_fee` DECIMAL(12,2) NULL default NULL, `after('credit_balance')`, con CHECK `default_delivery_fee IS NULL OR >= 0`. `down()` inverso (drop constraint + columna). |
+| `app/Models/Customer.php` | `default_delivery_fee` añadido a `$fillable` y cast `decimal:2`. |
+| `app/Http/Controllers/CustomerController.php` | Validación `['nullable','numeric','min:0']` (+ mensaje ES) en `store()` y `update()`; `search()` ahora incluye `default_delivery_fee` en el `get([...])`; la respuesta JSON de `store()` (alta FE inline) lo expone. |
+| `resources/views/customers/_form.blade.php` | Campo "Valor de domicilio (opcional)" con el patrón monetario del proyecto (`$` + `type=number`, `min=0 step=500`, `data-keyboard="numeric"`), placeholder "Sin domicilio" y ayuda. Valor `(int)` para no mostrar `.00`; vacío cuando es `NULL`. |
+| `resources/views/sales/create.blade.php` | `selectCustomer(c)` fija `deliveryFee = c.default_delivery_fee != null ? parseFloat(...) : 0`; `createFeCustomer()` hace lo mismo con el cliente recién creado. |
+
+### Efectos secundarios considerados
+
+- **Cálculo de totales sin cambios:** `SaleService` sigue haciendo `subtotal +
+  delivery_fee` con el mismo redondeo. No se duplicó lógica.
+- **Facturas antiguas compatibles:** no se tocó la tabla `invoices`; conservan su
+  `delivery_fee` (0 o el que tuvieran). El nuevo campo vive solo en `customers`.
+- **Migración segura:** columna nullable con default NULL → los clientes existentes
+  quedan "sin domicilio", sin sobrescribir datos.
+- **Autocarga client-side (Alpine)**, coherente con el resto del formulario reactivo;
+  el servidor solo recibe/valida `delivery_fee` como siempre.
+
+### Pruebas
+
+`tests/Feature/DefaultDeliveryFeeTest.php` — 10 casos (PHPUnit +
+`DatabaseTransactions`, impresora mockeada): persistencia en `store`/`update`,
+vacío→`NULL`, negativo rechazado, `0` permitido, `search` expone el valor, la venta
+guarda `delivery_fee` como **copia independiente** (cambiar la plantilla luego no
+altera la factura), override puntual sin tocar la plantilla, `$0` en factura, y
+cliente sin plantilla → sin cargo. **10/10 verde.**
+
+**Suite completa: 67 passed, 1 failed** — el único fallo sigue siendo `ExampleTest`
+(302→`/login`), previo y ajeno.

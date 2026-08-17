@@ -67,11 +67,14 @@ class CustomerController extends Controller
                     ->where('doc_type', $request->doc_type)
                     ->whereNull('deleted_at'),
             ],
-            'phone'         => ['nullable', 'string', 'max:30'],
-            'address'       => ['nullable', 'string'],
-            'email'         => ['nullable', 'email', 'max:150'],
-            'requires_fe'   => ['boolean'],
-            'notes'         => ['nullable', 'string'],
+            'phone'                => ['nullable', 'string', 'max:30'],
+            'address'              => ['nullable', 'string'],
+            'email'                => ['nullable', 'email', 'max:150'],
+            'requires_fe'          => ['boolean'],
+            'notes'                => ['nullable', 'string'],
+            'default_delivery_fee' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'default_delivery_fee.min' => 'El valor de domicilio no puede ser negativo.',
         ]);
 
         $customer = Customer::create($data);
@@ -79,13 +82,14 @@ class CustomerController extends Controller
         if ($request->expectsJson()) {
             return response()->json([
                 'customer' => [
-                    'id'           => $customer->id,
-                    'name'         => $customer->name,
-                    'business_name'=> $customer->business_name,
-                    'is_generic'   => false,
-                    'doc_type'     => $customer->doc_type,
-                    'doc_number'   => $customer->doc_number,
-                    'requires_fe'  => $customer->requires_fe,
+                    'id'                   => $customer->id,
+                    'name'                 => $customer->name,
+                    'business_name'        => $customer->business_name,
+                    'is_generic'           => false,
+                    'doc_type'             => $customer->doc_type,
+                    'doc_number'           => $customer->doc_number,
+                    'requires_fe'          => $customer->requires_fe,
+                    'default_delivery_fee' => $customer->default_delivery_fee,
                 ],
             ], 201);
         }
@@ -117,12 +121,15 @@ class CustomerController extends Controller
                     ->whereNull('deleted_at')
                     ->ignore($customer->id),
             ],
-            'phone'         => ['nullable', 'string', 'max:30'],
-            'address'       => ['nullable', 'string'],
-            'email'         => ['nullable', 'email', 'max:150'],
-            'requires_fe'   => ['boolean'],
-            'notes'         => ['nullable', 'string'],
-            'active'        => ['boolean'],
+            'phone'                => ['nullable', 'string', 'max:30'],
+            'address'              => ['nullable', 'string'],
+            'email'                => ['nullable', 'email', 'max:150'],
+            'requires_fe'          => ['boolean'],
+            'notes'                => ['nullable', 'string'],
+            'active'               => ['boolean'],
+            'default_delivery_fee' => ['nullable', 'numeric', 'min:0'],
+        ], [
+            'default_delivery_fee.min' => 'El valor de domicilio no puede ser negativo.',
         ]);
 
         $customer->update($data);
@@ -140,7 +147,7 @@ class CustomerController extends Controller
             })
             ->orderByRaw('is_generic DESC, name ASC')
             ->limit(20)
-            ->get(['id', 'name', 'business_name', 'doc_type', 'doc_number', 'is_generic', 'requires_fe']);
+            ->get(['id', 'name', 'business_name', 'doc_type', 'doc_number', 'is_generic', 'requires_fe', 'default_delivery_fee']);
 
         return response()->json($customers);
     }

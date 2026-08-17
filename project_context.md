@@ -113,7 +113,8 @@
 - Admin-only: price edits tracked with `price_updated_at` + `price_updated_by_user_id`.
 
 ### Customers
-- Fields: name, `doc_type` (NIT/CC), `doc_number`, phone, email, address, `business_name` (required when doc_type = NIT).
+- Fields: name, `doc_type` (NIT/CC), `doc_number`, phone, email, address, `business_name` (required when doc_type = NIT), `default_delivery_fee` (optional per-customer domicilio template — `NULL` = not configured).
+- **Default delivery fee (domicilio):** `customers.default_delivery_fee` is a *template*. On `/sales/new`, selecting a customer auto-loads it into the invoice's editable `delivery_fee` field; the cashier can still change it (incl. to $0). The value is copied into `invoices.delivery_fee` on sale, so editing the customer template never changes past invoices, and editing an invoice's fee never changes the template. Existing invoices keep their stored fee (the invoice editor never re-pulls the template).
 - Special prices per customer/product: created/edited/deleted in the customer detail view; applied automatically on sale by `customer_id`.
 - **Special prices report** — "Imprimir precios especiales" button in the customers
   list header (`POST /customers/special-prices/print`). Prints a single thermal
@@ -252,6 +253,7 @@
 | 2026-03-30 | Cartera Phase 1 — customer-grouped index, `/cartera/{customer}` detail page, `CustomerPayment` model + migration, FIFO consolidated payment service (`CustomerPaymentService`), `customers.credit_balance` (saldo a favor), 3 new migrations |
 | 2026-03-30 | Cartera Phase 2 — day/week invoice grouping (`?group=day\|week`), thermal "sacar el cobro" ticket (`renderCarteraResumen()`), print button on customer detail page |
 | 2026-04-15 | Windows Installer — Inno Setup + PowerShell: bundled PHP 8.2 + Postgres 16 portable, one-click desktop launcher with anti-double-boot, `pos:create-admin` / `pos:set-printer` artisan commands |
+| 2026-08-17 | Per-customer default domicilio — `customers.default_delivery_fee` (nullable, CHECK ≥ 0), auto-loaded into the editable invoice `delivery_fee` on customer select (`/sales/new`); copied to the invoice so the template stays independent from issued invoices |
 
 ---
 

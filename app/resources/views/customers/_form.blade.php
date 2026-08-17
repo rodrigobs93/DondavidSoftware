@@ -56,6 +56,20 @@
     </div>
 
     <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Valor de domicilio (opcional)</label>
+        <div class="flex items-center gap-2">
+            <span class="text-gray-500 text-sm">$</span>
+            <input type="number" name="default_delivery_fee"
+                value="{{ old('default_delivery_fee', $customer?->default_delivery_fee !== null ? (int) $customer->default_delivery_fee : '') }}"
+                inputmode="numeric" data-keyboard="numeric"
+                min="0" step="500" placeholder="Sin domicilio"
+                class="form-input w-full border rounded px-3 py-2 text-sm">
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Se cargará automáticamente al crear una factura para este cliente. Déjalo vacío si no cobra domicilio.</p>
+        @error('default_delivery_fee') <p class="text-red-500 text-xs mt-1">{{ $message }}</p> @enderror
+    </div>
+
+    <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
         <input type="email" name="email" value="{{ old('email', $customer?->email) }}"
             data-keyboard="text"
